@@ -1,0 +1,3 @@
+[submodule "gym_airsim_multirotor"]
+	path = gym_airsim_multirotor
+	url = https://github.com/heleidsn/gym_airsim_multirotor.git
