@@ -27,7 +27,7 @@ goal_distance = 70
 noise_intensity = 0.1
 gamma = 0.99
 learning_rate = 5e-4
-total_steps = 5e5
+total_steps = 1e5
 
 # init folders
 now = datetime.datetime.now()

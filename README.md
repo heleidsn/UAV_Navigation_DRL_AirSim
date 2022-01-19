@@ -28,6 +28,14 @@ This is a new repo used for training UAV navigation (local path planning) policy
    1. `cd scripts`
    2. `python train.py`
 
+## Results
+
+Training result using TD3 with no_cnn policy
+
+![](resources/figures/training_result_simple_no_cnn.png)
+
+![](resources/figures/training_result_simple_no_cnn_2.png)
+
 ### Train
 
 ### Evaluate
