@@ -18,9 +18,15 @@ This is a new repo used for training UAV navigation (local path planning) policy
 
 ## Usage
 
-1. Install gym_airsim_multirotor
+1. Clone this repo and the submodules
+   1. `git clone https://github.com/heleidsn/UAV_Navigation_DRL_AirSim.git --recursive`
+2. Install gym_airsim_multirotor
    1. `cd gym_airsim_multirotor`
    2. `pip install -e`
+3. Download a AirSim environment, such as Blocks from [Here](https://github.com/microsoft/AirSim/releases/tag/v1.6.0-windows) and run it
+4. Start training
+   1. `cd scripts`
+   2. `python train.py`
 
 ### Train
 
