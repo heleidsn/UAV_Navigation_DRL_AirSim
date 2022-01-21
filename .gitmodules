@@ -1,3 +1,6 @@
 [submodule "gym_airsim_multirotor"]
 	path = gym_airsim_multirotor
 	url = https://github.com/heleidsn/gym_airsim_multirotor.git
+[submodule "stable-baselines3"]
+	path = stable-baselines3
+	url = https://github.com/heleidsn/stable-baselines3.git

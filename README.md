@@ -5,11 +5,17 @@ This is a new repo used for training UAV navigation (local path planning) policy
 ## Requirements
 
 - [AirSim](https://microsoft.github.io/AirSim/) v1.6.0
-- [Stable-baselines3](https://github.com/DLR-RM/stable-baselines3) v1.3.0
-  - `pip install stable-baselines3[extra]`
-- [gym_airsim_multirotor](https://github.com/heleidsn/gym_airsim_multirotor)
 - pytorch 1.10.1
 - gym-0.21.0
+
+## Submodules
+
+- [Stable-baselines3](https://github.com/heleidsn/stable-baselines3) v1.4.0
+  - `cd stable-baselines3`
+  - `pip install -e .`
+- [gym_airsim_multirotor](https://github.com/heleidsn/gym_airsim_multirotor)
+  - `cd gym_airsim_multirotor`
+  - `pip install -e .`
 
 ## windows install CUDA and PyTorch
 
