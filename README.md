@@ -4,7 +4,7 @@ This is a new repo used for training UAV navigation (local path planning) policy
 
 ## Requirements
 
-- [AirSim](https://microsoft.github.io/AirSim/) v1.6.0
+- [AirSim](https://microsoft.github.io/AirSim/) v1.7.0
 - pytorch 1.10.1
 - gym-0.21.0
 
@@ -36,11 +36,10 @@ This is a new repo used for training UAV navigation (local path planning) policy
 
 ## Results
 
-Training result using TD3 with no_cnn policy
-
-![](resources/figures/training_result_simple_no_cnn.png)
-
-![](resources/figures/training_result_simple_no_cnn_2.png)
+- Training result using TD3 with no_cnn policy
+  - ![](resources/figures/training_result_simple_no_cnn.png)
+- Training result using TD3 no_cnn policy 3D simple_dynamics
+  - ![](resources/figures/result_3d_NH.gif)
 
 ### Train
 
