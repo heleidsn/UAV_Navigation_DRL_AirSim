@@ -5,8 +5,8 @@ This is a new repo used for training UAV navigation (local path planning) policy
 <p align="center">
   <img src="resources/figures/result_3d_NH_simple_dynamics.gif" width = "400" height = "225"/>
   <img src="resources/figures/result_3d_NH_multirotor.gif" width = "400" height = "225"/>
-  <img src="resources/figures/sim_city_fixed_wing.gif" width = "400" height = "225"/>
-  <img src="resources/figures/sim_city_flapping_5hz.gif" width = "400" height = "225"/>
+  <!-- <img src="resources/figures/sim_city_fixed_wing.gif" width = "400" height = "225"/>
+  <img src="resources/figures/sim_city_flapping_5hz.gif" width = "400" height = "225"/> -->
 </p>
 
 ## Requirements
