@@ -2,6 +2,13 @@
 
 This is a new repo used for training UAV navigation (local path planning) policy using DRL methods.
 
+<p align="center">
+  <img src="resources/figures/result_3d_NH_simple_dynamics.gif" width = "400" height = "225"/>
+  <img src="resources/figures/result_3d_NH_multirotor.gif" width = "400" height = "225"/>
+  <img src="resources/figures/sim_city_fixed_wing.gif" width = "400" height = "225"/>
+  <img src="resources/figures/sim_city_flapping_5hz.gif" width = "400" height = "225"/>
+</p>
+
 ## Requirements
 
 - [AirSim](https://microsoft.github.io/AirSim/) v1.7.0
@@ -38,8 +45,6 @@ This is a new repo used for training UAV navigation (local path planning) policy
 
 - Training result using TD3 with no_cnn policy
   - ![](resources/figures/training_result_simple_no_cnn.png)
-- Training result using TD3 no_cnn policy 3D simple_dynamics
-  - ![](resources/figures/result_3d_NH.gif)
 
 ### Train
 
