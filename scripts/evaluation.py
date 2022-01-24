@@ -7,14 +7,12 @@ import torch as th
 import numpy as np
 
 from stable_baselines3 import TD3, PPO
-from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
 from stable_baselines3.common.logger import configure
-from utils.custom_policy_sb3 import CustomCNN, CustomCNN_GAP, CustomCNN_fc, CustomCNN_mobile
 from stable_baselines3.common.callbacks import BaseCallback
 
-env = gym.make('airsim-simple-dynamics-v0')
+env = gym.make('airsim-env-v0')
 
-model_path = r'C:\Users\helei\OneDrive - mail.nwpu.edu.cn\Github\UAV_Navigation_DRL_AirSim\logs\2022_01_22_21_53__no_cnn_acc_NH_env_3d\models\pure_rl_td3_2d_no_cnn_acc_NH_env_3d.zip'
+model_path = r'C:\Users\helei\OneDrive - mail.nwpu.edu.cn\Github\UAV_Navigation_DRL_AirSim\logs\2022_01_24_08_45__no_cnn_acc_NH_MR_3d_5e_4\models\pure_rl_td3_2d_no_cnn_acc_NH_MR_3d_5e_4.zip'
 model = TD3.load(model_path)
 
 env.model = model

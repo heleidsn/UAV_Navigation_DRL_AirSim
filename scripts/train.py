@@ -9,7 +9,8 @@ import numpy as np
 from stable_baselines3 import TD3, PPO
 from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
 from stable_baselines3.common.logger import configure
-from utils.custom_policy_sb3 import CustomCNN, CustomCNN_GAP, CustomCNN_fc, CustomCNN_mobile
+from utils.custom_policy_sb3 import CustomNoCNN, CustomCNN_GAP, CustomCNN_fc, CustomCNN_mobile
+from stable_baselines3.common.callbacks import BaseCallback
 
 
 HOME_PATH = r'C:\Users\helei\OneDrive - mail.nwpu.edu.cn\Github\UAV_Navigation_DRL_AirSim'
@@ -20,7 +21,7 @@ policy = 'no_cnn'       # 1-cnn_fc 2-cnn_gap 3-no_cnn 4-cnn_mobile
 env_name = 'airsim_trees'      # 1-trees  2-cylinder
 algo = 'td3'            # 1-ppo 2-td3
 action_num = '2d'       # 2d or 3d
-purpose = 'test'        # input your training purpose
+purpose = 'acc_NH_MR_3d_5e_4'        # input your training purpose
 
 noise_type = 'NA'
 goal_distance = 70
@@ -31,8 +32,8 @@ total_steps = 1e5
 
 # init folders
 now = datetime.datetime.now()
-now_string = now.strftime('%Y_%m_%d_%H_%M_'+purpose)
-file_path = HOME_PATH + '/logs/' + now_string
+now_string = now.strftime('%Y_%m_%d_%H_%M_')
+file_path = HOME_PATH + '/logs/' + now_string + '_' + policy + '_' + purpose
 log_path = file_path + '/log'
 model_path = file_path + '/models'
 config_path = file_path + '/config'
@@ -40,10 +41,10 @@ os.makedirs(log_path, exist_ok=True)
 os.makedirs(model_path, exist_ok=True)
 os.makedirs(config_path, exist_ok=True)
 
-env = gym.make('airsim-simple-dynamics-v0')
+env = gym.make('airsim-env-v0')
 
 #! --------------step 2: create models------------------------------------------
-feature_num_state = 4 # state feature num
+feature_num_state = 6 # state feature num
 if policy == 'cnn_fc':
     feature_num_cnn = 25
     policy_used = CustomCNN_fc
@@ -51,11 +52,11 @@ elif policy == 'cnn_gap':
     feature_num_cnn = 16
     policy_used = CustomCNN_GAP
 elif policy == 'cnn_mobile':
-    feature_num_cnn = 576
+    feature_num_cnn = 32
     policy_used = CustomCNN_mobile
 elif policy == 'no_cnn':
     feature_num_cnn = 25
-    policy_used = CustomCNN
+    policy_used = CustomNoCNN
 else:
     print('policy select error')
 
@@ -93,16 +94,17 @@ elif algo == 'td3':
             learning_rate=learning_rate,
             gamma=gamma,
             policy_kwargs=policy_kwargs, verbose=1,
-            learning_starts=4000,
+            learning_starts=2000,
             batch_size=128,
-            train_freq=(400, 'step'),
-            gradient_steps=400,
+            train_freq=(200, 'step'),
+            gradient_steps=200,
             tensorboard_log=log_path + '_' + env_name + '_' + algo,
             buffer_size=50000, seed=0)
 else:
     print('algo input error')
 
 #! ----------------step 4: enjoy training process---------------------------------
+env.model = model
 tb_log_name = algo + '_' + policy + '_' + purpose
 model.learn(total_timesteps=total_steps, 
             # callback=TensorboardCallback(),

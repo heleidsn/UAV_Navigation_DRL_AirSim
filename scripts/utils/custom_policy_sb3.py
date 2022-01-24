@@ -24,7 +24,7 @@ Provide 3 types of network
     FC is used to get CNN features (960 100 25)
 '''
 
-feature_num_state = 4
+feature_num_state = 6
 
 class CustomCNN_GAP_old(BaseFeaturesExtractor):
     """
@@ -96,23 +96,30 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
 
         self.conv1 = nn.Sequential(
             nn.Conv2d(1, 8, kernel_size=3, stride=1, padding='same'),
-            nn.PReLU(),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2)  # [1, 8, 40, 48]
         )
 
         self.conv2 = nn.Sequential(
             nn.Conv2d(8, 8, kernel_size=3, stride=1, padding='same'),
-            nn.PReLU(),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 20, 24]
             # nn.BatchNorm2d(8, affine=False)
         )
 
         self.conv3 = nn.Sequential(
             nn.Conv2d(8, 16, kernel_size=3, stride=1, padding='same'),
-            nn.PReLU(),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 10, 12]
         )
         self.gap_layer = nn.AvgPool2d(kernel_size=(10, 12), stride=1)
+
+        nn.init.kaiming_normal_(self.conv1[0].weight, a=0, mode='fan_in')
+        nn.init.kaiming_normal_(self.conv2[0].weight, a=0, mode='fan_in')
+        nn.init.kaiming_normal_(self.conv3[0].weight, a=0, mode='fan_in')
+        nn.init.constant(self.conv1[0].bias, 0.0)
+        nn.init.constant(self.conv2[0].bias, 0.0)
+        nn.init.constant(self.conv3[0].bias, 0.0)
 
         # nn.init.xavier_uniform(self.conv1[0].weight)
         # nn.init.xavier_uniform(self.conv2[0].weight)
@@ -133,7 +140,16 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
         self.layer_3_out = self.conv3(self.layer_2_out)
         self.gap_layer_out = self.gap_layer(self.layer_3_out)
 
-        cnn_feature = self.gap_layer_out  # [1, 8, 1, 1]
+        # get weight and bias
+        weights_1 = self.conv1[0].weight
+        weights_2 = self.conv2[0].weight
+        weights_3 = self.conv3[0].weight
+
+        bias_1 = self.conv1[0].bias
+        bias_2 = self.conv2[0].bias
+        bias_3 = self.conv3[0].bias
+
+        cnn_feature = nn.Tanh(self.gap_layer_out)  # [1, 8, 1, 1]
         cnn_feature = cnn_feature.squeeze(dim=3) # [1, 8, 1]
         cnn_feature = cnn_feature.squeeze(dim=2) # [1, 8]
         # cnn_feature = th.clamp(cnn_feature,-1,2)
@@ -149,7 +165,7 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
         return x
 
 
-class CustomCNN(BaseFeaturesExtractor):
+class CustomNoCNN(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space)
     :param features_dim: (int) Number of features extracted.
@@ -157,7 +173,7 @@ class CustomCNN(BaseFeaturesExtractor):
     """
 
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
-        super(CustomCNN, self).__init__(observation_space, features_dim)
+        super(CustomNoCNN, self).__init__(observation_space, features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
         # Can use model.actor.features_extractor.feature_all to print all features
@@ -233,7 +249,8 @@ class CustomCNN_fc(BaseFeaturesExtractor):
             nn.Linear(960, 100),
             nn.ReLU(),
             nn.Linear(100, 25),
-            nn.ReLU()
+            # nn.BatchNorm1d(32),
+            nn.Tanh(),
         )
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
@@ -275,9 +292,11 @@ class CustomCNN_mobile(BaseFeaturesExtractor):
         self.gap_layer = nn.AdaptiveAvgPool2d(output_size=1)
         self.linear = nn.Sequential(
             nn.Linear(576, 256),
-            nn.ReLU(),
+            nn.BatchNorm1d(256),
+            nn.Tanh(),
             # nn.Dropout(0.25),
-            nn.Linear(256, 64),
+            nn.Linear(256, 32),
+            nn.BatchNorm1d(32),
             nn.Tanh(),
             # nn.Dropout(0.25)
         )
@@ -293,7 +312,7 @@ class CustomCNN_mobile(BaseFeaturesExtractor):
 
         cnn_feature = cnn_feature.squeeze(dim=3) # [1, 576, 1]
         cnn_feature = cnn_feature.squeeze(dim=2) # [1, 576]
-        # cnn_feature = self.linear(cnn_feature)  # [1, 32]
+        cnn_feature = self.linear(cnn_feature)  # [1, 32]
 
         state_feature = observations[:, 1, 0, 0:self.feature_num_state] # [1, 2]
         # transfer state feature from 0~1 to -1~1
