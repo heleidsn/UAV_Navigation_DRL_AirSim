@@ -12,23 +12,40 @@ from stable_baselines3.common.logger import configure
 from utils.custom_policy_sb3 import CustomNoCNN, CustomCNN_GAP, CustomCNN_fc, CustomCNN_mobile
 from stable_baselines3.common.callbacks import BaseCallback
 
+import wandb
+from wandb.integration.sb3 import WandbCallback
 
-HOME_PATH = r'C:\Users\helei\OneDrive - mail.nwpu.edu.cn\Github\UAV_Navigation_DRL_AirSim'
+# wandb.init(project="MR_NH", entity="heleidsn")
+
+HOME_PATH = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim'
 
 #! ---------------step 0: custom your training process-------------------------
 method = 'pure_rl'      # 1-pure_rl 2-generate_expert_data 3-bc_rl 4-offline_rl
 policy = 'no_cnn'       # 1-cnn_fc 2-cnn_gap 3-no_cnn 4-cnn_mobile
-env_name = 'airsim_trees'      # 1-trees  2-cylinder
+env_name = 'airsim_city'      # 1-trees  2-cylinder
 algo = 'td3'            # 1-ppo 2-td3
 action_num = '2d'       # 2d or 3d
-purpose = 'acc_NH_MR_3d_5e_4'        # input your training purpose
+purpose = 'fixed_wing_test'        # input your training purpose
 
 noise_type = 'NA'
 goal_distance = 70
 noise_intensity = 0.1
 gamma = 0.99
 learning_rate = 5e-4
-total_steps = 1e5
+total_steps = 3e5
+
+config = {
+    "policy_type": policy,
+    "total_timesteps": total_steps,
+    "env_name": env_name,
+}
+# run = wandb.init(
+#     project="sb3_MR_NH",
+#     config=config,
+#     sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
+#     # monitor_gym=True,  # auto-upload the videos of agents playing the game
+#     save_code=True,  # optional
+# )
 
 # init folders
 now = datetime.datetime.now()
@@ -44,7 +61,7 @@ os.makedirs(config_path, exist_ok=True)
 env = gym.make('airsim-env-v0')
 
 #! --------------step 2: create models------------------------------------------
-feature_num_state = 6 # state feature num
+feature_num_state = env.dynamic_model.state_feature_length # state feature num
 if policy == 'cnn_fc':
     feature_num_cnn = 25
     policy_used = CustomCNN_fc
@@ -108,12 +125,20 @@ env.model = model
 tb_log_name = algo + '_' + policy + '_' + purpose
 model.learn(total_timesteps=total_steps, 
             # callback=TensorboardCallback(),
+            # callback=WandbCallback(
+            #     gradient_save_freq=100,
+            #     model_save_path=f"models/{run.id}",
+            #     verbose=2,
+            # ),
             log_interval=1, 
             tb_log_name=tb_log_name)
 
+# wandb.watch(model)
 #! ----------------step 5: save models and training results-----------------------
 model_name = method + '_' + algo + '_' + action_num + '_' + policy + '_' + purpose
 os.makedirs(model_path, exist_ok=True)
 model.save(model_path + '/' + model_name)
 print('model is saved to :{}'.format(model_path + '/' + model_name))
 print('log is saved to {}'.format(log_path + env_name + '_' + algo))
+
+# run.finish()

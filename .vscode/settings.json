@@ -1,7 +1,8 @@
 {
     "cSpell.words": [
         "Ornstein",
-        "Uhlenbeck"
+        "Uhlenbeck",
+        "Wandb"
     ],
     "python.analysis.extraPaths": [
         "./stable-baselines3"

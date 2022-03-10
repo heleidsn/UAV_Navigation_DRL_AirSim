@@ -12,7 +12,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 env = gym.make('airsim-env-v0')
 
-model_path = r'C:\Users\helei\OneDrive - mail.nwpu.edu.cn\Github\UAV_Navigation_DRL_AirSim\logs\2022_01_24_08_45__no_cnn_acc_NH_MR_3d_5e_4\models\pure_rl_td3_2d_no_cnn_acc_NH_MR_3d_5e_4.zip'
+model_path = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\2022_03_03_23_26__no_cnn_fixed_wing_test\models\pure_rl_td3_2d_no_cnn_fixed_wing_test.zip'
 model = TD3.load(model_path)
 
 env.model = model
