@@ -51,6 +51,8 @@ This is a new repo used for training UAV navigation (local path planning) policy
    1. `cd UAV_Navigation_DRL_AirSim`
    2. `python scripts/start_train_with_plot.py`
 6. Evaluation
+   1. `cd UAV_Navigation_DRL_AirSim`
+   2. `python scripts/start_evaluate_with_plot.py`
 
 ## Configs
 
@@ -72,6 +74,10 @@ Now we provide 3 training envrionment and 3 dynamics.
 * SimpleMultirotor
 * Multirotor
 * SimpleFixedwing
+
+## GUI for training and evaluation
+
+![img](resources/figures/gui_for_train_and_eval.png)
 
 ## Results
 
