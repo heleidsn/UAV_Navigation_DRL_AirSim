@@ -24,8 +24,6 @@ Provide 3 types of network
     FC is used to get CNN features (960 100 25)
 '''
 
-feature_num_state = 6
-
 class CustomCNN_GAP_old(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space)
@@ -34,11 +32,12 @@ class CustomCNN_GAP_old(BaseFeaturesExtractor):
     old version
     """
 
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=0):
         super(CustomCNN_GAP, self).__init__(observation_space, features_dim)
         # Can use model.actor.features_extractor.feature_all to print all features
         # set CNN and state feature num
-        self.feature_num_state = feature_num_state
+        assert state_feature_dim > 0
+        self.feature_num_state = state_feature_dim
         self.feature_all = None
 
         # Input image: 80*100
@@ -87,11 +86,12 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=0):
         super(CustomCNN_GAP, self).__init__(observation_space, features_dim)
         # Can use model.actor.features_extractor.feature_all to print all features
         # set CNN and state feature num
-        self.feature_num_state = feature_num_state
+        assert state_feature_dim > 0
+        self.feature_num_state = state_feature_dim
         self.feature_all = None
 
         self.conv1 = nn.Sequential(
@@ -172,14 +172,15 @@ class CustomNoCNN(BaseFeaturesExtractor):
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=0):
         super(CustomNoCNN, self).__init__(observation_space, features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
         # Can use model.actor.features_extractor.feature_all to print all features
 
         # set CNN and state feature num
-        self.feature_num_state = feature_num_state
+        assert state_feature_dim > 0
+        self.feature_num_state = state_feature_dim
         self.feature_all = None
 
         # input size 80*100
@@ -212,11 +213,12 @@ class CustomCNN_fc(BaseFeaturesExtractor):
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=0):
         super(CustomCNN_fc, self).__init__(observation_space, features_dim)
         # Can use model.actor.features_extractor.feature_all to print all features
         # set CNN and state feature num
-        self.feature_num_state = feature_num_state
+        assert state_feature_dim > 0
+        self.feature_num_state = state_feature_dim
         self.feature_all = None
 
         # Input image: 80*100
@@ -275,10 +277,11 @@ class CustomCNN_mobile(BaseFeaturesExtractor):
     '''
     Using part of mobile_net_v3_small to generate features from depth image
     '''
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=0):
         super(CustomCNN_mobile, self).__init__(observation_space, features_dim)
 
-        self.feature_num_state = feature_num_state
+        assert state_feature_dim > 0
+        self.feature_num_state = state_feature_dim
         self.feature_all = None
 
         self.mobilenet_v3_small = pre_models.mobilenet_v3_small(pretrained=True)
