@@ -9,6 +9,14 @@ This is a new repo used for training UAV navigation (local path planning) policy
   <img src="resources/figures/sim_city_flapping_5hz.gif" width = "400" height = "225"/> -->
 </p>
 
+## ChangeLog
+
+- 2020-03-10
+  - Remove [gym_airsim_multirotor](https://github.com/heleidsn/gym_airsim_multirotor) submodule
+  - Add gym_env as envrionment, include MultirotorSimple, Multirotor and FixedwingSimple dynamics
+  - Add train with plot
+  - Add SimpleAvoid UE4 environment
+
 ## Requirements
 
 - [AirSim](https://microsoft.github.io/AirSim/) v1.7.0
@@ -18,13 +26,8 @@ This is a new repo used for training UAV navigation (local path planning) policy
 ## Submodules
 
 - [Stable-baselines3](https://github.com/heleidsn/stable-baselines3) v1.4.0
-  - `cd stable-baselines3`
-  - `pip install -e .`
-- [gym_airsim_multirotor](https://github.com/heleidsn/gym_airsim_multirotor)
-  - `cd gym_airsim_multirotor`
-  - `pip install -e .`
 
-## windows install CUDA and PyTorch
+## Install CUDA and PyTorch (Win10)
 
 - Download [CUDA11.6](https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64&target_version=10&target_type=exe_local)
 - `pip3 install torch==1.10.1+cu113 torchvision==0.11.2+cu113 torchaudio===0.10.1+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html`
@@ -32,25 +35,52 @@ This is a new repo used for training UAV navigation (local path planning) policy
 ## Usage
 
 1. Clone this repo and the submodules
+
    1. `git clone https://github.com/heleidsn/UAV_Navigation_DRL_AirSim.git --recursive`
-2. Install gym_airsim_multirotor
-   1. `cd gym_airsim_multirotor`
-   2. `pip install -e`
-3. Download a AirSim environment, such as Blocks from [Here](https://github.com/microsoft/AirSim/releases/tag/v1.6.0-windows) and run it
-4. Start training
-   1. `cd scripts`
-   2. `python train.py`
+2. Install gym_env
+
+   1. `cd gym_env`
+   2. `pip install -e .`
+3. Install customized stable-baselines3
+
+   1. `cd stable-baselines3`
+   2. `pip install -e .`
+4. Download a AirSim environment, such as Blocks from [Here](https://github.com/microsoft/AirSim/releases/tag/v1.6.0-windows) and run it
+5. Start training
+
+   1. `cd UAV_Navigation_DRL_AirSim`
+   2. `python scripts/start_train_with_plot.py`
+6. Evaluation
+
+## Configs
+
+This repo using config file to control training conditions.
+
+Now we provide 3 training envrionment and 3 dynamics.
+
+**env_name**
+
+* SimpleAvoid
+  * <img src="resources\env_maps\simple_world_light.png" alt="drawing" width="400"/>
+* NH
+  * <img src="resources\env_maps\NH.png" alt="drawing" width="400"/>
+* City (for fixedwing)
+  * <img src="resources\env_maps\city.png" alt="drawing" width="400"/>
+
+**dynamic_name**
+
+* SimpleMultirotor
+* Multirotor
+* SimpleFixedwing
 
 ## Results
 
 - Training result using TD3 with no_cnn policy
-  - ![](resources/figures/training_result_simple_no_cnn.png)
-
-### Train
-
-### Evaluate
+  - ![img](resources/figures/training_result_simple_no_cnn.png)
 
 ## Settings
+
+For
 
 ```json
 {
