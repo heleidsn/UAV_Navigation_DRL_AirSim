@@ -11,6 +11,8 @@ This is a new repo used for training UAV navigation (local path planning) policy
 
 ## ChangeLog
 
+- 2020-03-11
+  - Add wandb support
 - 2020-03-10
   - Remove [gym_airsim_multirotor](https://github.com/heleidsn/gym_airsim_multirotor) submodule
   - Add gym_env as envrionment, include MultirotorSimple, Multirotor and FixedwingSimple dynamics
@@ -51,6 +53,7 @@ This is a new repo used for training UAV navigation (local path planning) policy
    1. `cd UAV_Navigation_DRL_AirSim`
    2. `python scripts/start_train_with_plot.py`
 6. Evaluation
+
    1. `cd UAV_Navigation_DRL_AirSim`
    2. `python scripts/start_evaluate_with_plot.py`
 
@@ -78,6 +81,12 @@ Now we provide 3 training envrionment and 3 dynamics.
 ## GUI for training and evaluation
 
 ![img](resources/figures/gui_for_train_and_eval.png)
+
+## Wandb support
+
+[Wandb](https://wandb.ai/site) is a central dashboard to keep track of your hyperparameters, system metrics. You can find examples [here](https://docs.wandb.ai/guides/integrations/other/stable-baselines-3).
+
+> Note: If you use wandb, please run python as **administators**.
 
 ## Results
 

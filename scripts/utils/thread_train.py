@@ -18,6 +18,9 @@ from configparser import ConfigParser
 
 from PyQt5 import QtWidgets, QtCore
 
+import wandb
+from wandb.integration.sb3 import WandbCallback
+
 class TrainingThread(QtCore.QThread):
     # signals
     def __init__(self, config):
@@ -33,6 +36,15 @@ class TrainingThread(QtCore.QThread):
         # make gym environment
         self.env = gym.make('airsim-env-v0')
         self.env.set_config(self.cfg)
+
+        # wandb
+        if self.cfg.getboolean('options', 'use_wandb'):
+            project_name = self.cfg.get('options', 'env_name') + '_' + self.cfg.get('options', 'dynamic_name') + '_' + self.cfg.get('options', 'navigation_3d')
+            wandb.init(
+                project=project_name,
+                sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
+                save_code=True,  # optional
+            )
 
     def terminate(self):
         print('TrainingThread terminated')
@@ -103,20 +115,33 @@ class TrainingThread(QtCore.QThread):
                     buffer_size=self.cfg.getint('TD3', 'buffer_size'),
                     tensorboard_log=log_path,
                     seed=0,
-                    verbose=1
+                    verbose=1,
                     )
         
         # train
         print('start training model')
         total_timesteps = self.cfg.getint('TD3', 'total_timesteps')
         self.env.model = model
-        model.learn(total_timesteps)
 
-        model_name = 'model_sb3'
-        model.save(model_path + '/' + model_name)
+        if self.cfg.getboolean('options', 'use_wandb'):
+            model.learn(
+                total_timesteps,
+                callback=WandbCallback(
+                    model_save_freq=2000,
+                    gradient_save_freq=100,
+                    model_save_path=model_path,
+                    verbose=2,
+                )
+            )
+        else:
+            model.learn(total_timesteps)
+    
+        # self.run.finish()
+        # model_name = 'model_sb3'
+        # model.save(model_path + '/' + model_name)
         
         print('training finished')
-        print('model saved to: {}/{}'.format(model_path, model_name))
+        print('model saved to: {}'.format(model_path))
 
         
 def main():

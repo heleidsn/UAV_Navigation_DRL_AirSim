@@ -15,7 +15,7 @@ class MultirotorDynamicsSimple():
     def __init__(self, cfg) -> None:
         
         # config
-        self.navigation_3d = cfg.getboolean('multirotor', 'navigation_3d')
+        self.navigation_3d = cfg.getboolean('options', 'navigation_3d')
         self.dt = cfg.getfloat('multirotor', 'dt')
 
         # AirSim Client
