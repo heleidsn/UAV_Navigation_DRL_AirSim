@@ -31,7 +31,12 @@ class TrainingThread(QtCore.QThread):
         self.cfg = ConfigParser()
         self.cfg.read(config)
 
-        self.objective = self.cfg.get('options', 'objective')
+        self.project_name = self.cfg.get('options', 'env_name') + '_' + self.cfg.get('options', 'dynamic_name') + '_'
+
+        if self.cfg.getboolean('options', 'navigation_3d'):
+            self.project_name += '3D'
+        else:
+            self.project_name += '2D'
 
         # make gym environment
         self.env = gym.make('airsim-env-v0')
@@ -39,9 +44,8 @@ class TrainingThread(QtCore.QThread):
 
         # wandb
         if self.cfg.getboolean('options', 'use_wandb'):
-            project_name = self.cfg.get('options', 'env_name') + '_' + self.cfg.get('options', 'dynamic_name') + '_' + self.cfg.get('options', 'navigation_3d')
             wandb.init(
-                project=project_name,
+                project=self.project_name,
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 save_code=True,  # optional
             )
@@ -54,14 +58,16 @@ class TrainingThread(QtCore.QThread):
         
         # init folders
         now = datetime.datetime.now()
-        now_string = now.strftime('%Y_%m_%d_%H_%M_' + self.objective)
-        file_path = 'logs/' + now_string
+        now_string = now.strftime('%Y_%m_%d_%H_%M')
+        file_path = 'logs/' + self.project_name + '/' + now_string
         log_path = file_path + '/tb_logs'
         model_path = file_path + '/models'
         config_path = file_path + '/config'
+        data_path = file_path + '/data'
         os.makedirs(log_path, exist_ok=True)
         os.makedirs(model_path, exist_ok=True)
         os.makedirs(config_path, exist_ok=True)
+        os.makedirs(data_path, exist_ok=True)
 
         # save config file
         with open(config_path + '\config.ini', 'w') as configfile:
@@ -117,18 +123,19 @@ class TrainingThread(QtCore.QThread):
                     seed=0,
                     verbose=1,
                     )
-        
         # train
         print('start training model')
         total_timesteps = self.cfg.getint('TD3', 'total_timesteps')
         self.env.model = model
+        self.env.data_path = data_path
 
         if self.cfg.getboolean('options', 'use_wandb'):
+            wandb.watch(model.actor, log_freq=100) # log gradients
             model.learn(
                 total_timesteps,
                 callback=WandbCallback(
                     model_save_freq=2000,
-                    gradient_save_freq=100,
+                    # gradient_save_freq=100,
                     model_save_path=model_path,
                     verbose=2,
                 )
@@ -137,8 +144,8 @@ class TrainingThread(QtCore.QThread):
             model.learn(total_timesteps)
     
         # self.run.finish()
-        # model_name = 'model_sb3'
-        # model.save(model_path + '/' + model_name)
+        model_name = 'model_sb3'
+        model.save(model_path + '/' + model_name)
         
         print('training finished')
         print('model saved to: {}'.format(model_path))

@@ -66,6 +66,7 @@ Now we provide 3 training envrionment and 3 dynamics.
 **env_name**
 
 * SimpleAvoid
+  * This is a custom UE4 environment used for simple obstacle avoidance test. You can download it from [google drive](https://drive.google.com/file/d/1QgkZY5-GXRr93QTV-s2d2OCoVSndADAM/view?usp=sharing).
   * <img src="resources\env_maps\simple_world_light.png" alt="drawing" width="400"/>
 * NH
   * <img src="resources\env_maps\NH.png" alt="drawing" width="400"/>
