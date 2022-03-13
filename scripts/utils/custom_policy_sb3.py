@@ -92,6 +92,7 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
         # set CNN and state feature num
         assert state_feature_dim > 0
         self.feature_num_state = state_feature_dim
+        self.feature_num_cnn = features_dim - state_feature_dim
         self.feature_all = None
 
         self.conv1 = nn.Sequential(
@@ -101,25 +102,25 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
         )
 
         self.conv2 = nn.Sequential(
-            nn.Conv2d(8, 8, kernel_size=3, stride=1, padding='same'),
+            nn.Conv2d(8, 16, kernel_size=3, stride=1, padding='same'),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 20, 24]
             # nn.BatchNorm2d(8, affine=False)
         )
 
         self.conv3 = nn.Sequential(
-            nn.Conv2d(8, 16, kernel_size=3, stride=1, padding='same'),
+            nn.Conv2d(16, self.feature_num_cnn, kernel_size=3, stride=1, padding='same'),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 10, 12]
         )
         self.gap_layer = nn.AvgPool2d(kernel_size=(10, 12), stride=1)
 
-        nn.init.kaiming_normal_(self.conv1[0].weight, a=0, mode='fan_in')
-        nn.init.kaiming_normal_(self.conv2[0].weight, a=0, mode='fan_in')
-        nn.init.kaiming_normal_(self.conv3[0].weight, a=0, mode='fan_in')
-        nn.init.constant(self.conv1[0].bias, 0.0)
-        nn.init.constant(self.conv2[0].bias, 0.0)
-        nn.init.constant(self.conv3[0].bias, 0.0)
+        # nn.init.kaiming_normal_(self.conv1[0].weight, a=0, mode='fan_in')
+        # nn.init.kaiming_normal_(self.conv2[0].weight, a=0, mode='fan_in')
+        # nn.init.kaiming_normal_(self.conv3[0].weight, a=0, mode='fan_in')
+        # nn.init.constant(self.conv1[0].bias, 0.0)
+        # nn.init.constant(self.conv2[0].bias, 0.0)
+        # nn.init.constant(self.conv3[0].bias, 0.0)
 
         # nn.init.xavier_uniform(self.conv1[0].weight)
         # nn.init.xavier_uniform(self.conv2[0].weight)
@@ -149,7 +150,7 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
         bias_2 = self.conv2[0].bias
         bias_3 = self.conv3[0].bias
 
-        cnn_feature = nn.Tanh(self.gap_layer_out)  # [1, 8, 1, 1]
+        cnn_feature = self.gap_layer_out  # [1, 8, 1, 1]
         cnn_feature = cnn_feature.squeeze(dim=3) # [1, 8, 1]
         cnn_feature = cnn_feature.squeeze(dim=2) # [1, 8]
         # cnn_feature = th.clamp(cnn_feature,-1,2)
