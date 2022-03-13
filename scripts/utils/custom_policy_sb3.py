@@ -206,7 +206,7 @@ class CustomNoCNN(BaseFeaturesExtractor):
         return x
 
 
-class CustomCNN_fc(BaseFeaturesExtractor):
+class CustomCNN_FC(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space)
     :param features_dim: (int) Number of features extracted.
@@ -214,11 +214,12 @@ class CustomCNN_fc(BaseFeaturesExtractor):
     """
 
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=0):
-        super(CustomCNN_fc, self).__init__(observation_space, features_dim)
+        super(CustomCNN_FC, self).__init__(observation_space, features_dim)
         # Can use model.actor.features_extractor.feature_all to print all features
         # set CNN and state feature num
         assert state_feature_dim > 0
         self.feature_num_state = state_feature_dim
+        self.feature_num_cnn = features_dim - state_feature_dim
         self.feature_all = None
 
         # Input image: 80*100
@@ -228,31 +229,34 @@ class CustomCNN_fc(BaseFeaturesExtractor):
             # nn.BatchNorm2d(8),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 40, 48]
+
             nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
             # nn.BatchNorm2d(8),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 20, 24]
+
             nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
             # nn.BatchNorm2d(8),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 10, 12]
+
             # nn.BatchNorm2d(8),
             nn.Flatten(),   # 960
             # nn.AvgPool2d(kernel_size=(10, 12), stride=1)
         )
 
         # Compute shape by doing one forward pass
-        # with th.no_grad():
-        #     n_flatten = self.cnn(
-        #         th.as_tensor(observation_space.sample()[None][:, 0:1, :, :]).float()
-        #     ).shape[1]
+        with th.no_grad():
+            n_flatten = self.cnn(
+                th.as_tensor(observation_space.sample()[None][:, 0:1, :, :]).float()
+            ).shape[1]
 
         self.linear = nn.Sequential(
-            nn.Linear(960, 100),
+            nn.Linear(n_flatten, 100),
             nn.ReLU(),
-            nn.Linear(100, 25),
+            nn.Linear(100, self.feature_num_cnn),
             # nn.BatchNorm1d(32),
-            nn.Tanh(),
+            nn.ReLU(),
         )
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
@@ -273,15 +277,16 @@ class CustomCNN_fc(BaseFeaturesExtractor):
         return x
 
 
-class CustomCNN_mobile(BaseFeaturesExtractor):
+class CustomCNN_MobileNet(BaseFeaturesExtractor):
     '''
     Using part of mobile_net_v3_small to generate features from depth image
     '''
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=0):
-        super(CustomCNN_mobile, self).__init__(observation_space, features_dim)
+        super(CustomCNN_MobileNet, self).__init__(observation_space, features_dim)
 
         assert state_feature_dim > 0
         self.feature_num_state = state_feature_dim
+        self.feature_num_cnn = features_dim - state_feature_dim
         self.feature_all = None
 
         self.mobilenet_v3_small = pre_models.mobilenet_v3_small(pretrained=True)
@@ -295,11 +300,17 @@ class CustomCNN_mobile(BaseFeaturesExtractor):
         self.gap_layer = nn.AdaptiveAvgPool2d(output_size=1)
         self.linear = nn.Sequential(
             nn.Linear(576, 256),
-            nn.BatchNorm1d(256),
-            nn.Tanh(),
+            # nn.BatchNorm1d(256),
+            nn.ReLU(),
             # nn.Dropout(0.25),
-            nn.Linear(256, 32),
-            nn.BatchNorm1d(32),
+            nn.Linear(256, self.feature_num_cnn),
+            # nn.BatchNorm1d(32),
+            nn.ReLU(),
+            # nn.Dropout(0.25)
+        )
+        self.linear_small = nn.Sequential(
+            nn.Linear(576, self.feature_num_cnn),
+            # nn.BatchNorm1d(32),
             nn.Tanh(),
             # nn.Dropout(0.25)
         )
@@ -315,7 +326,7 @@ class CustomCNN_mobile(BaseFeaturesExtractor):
 
         cnn_feature = cnn_feature.squeeze(dim=3) # [1, 576, 1]
         cnn_feature = cnn_feature.squeeze(dim=2) # [1, 576]
-        cnn_feature = self.linear(cnn_feature)  # [1, 32]
+        cnn_feature = self.linear_small(cnn_feature)  # [1, 32]
 
         state_feature = observations[:, 1, 0, 0:self.feature_num_state] # [1, 2]
         # transfer state feature from 0~1 to -1~1

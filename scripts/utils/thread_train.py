@@ -12,7 +12,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from torch.utils.tensorboard import SummaryWriter
 # import wandb
 
-from utils.custom_policy_sb3 import CustomNoCNN, CustomCNN_GAP, CustomCNN_fc, CustomCNN_mobile
+from utils.custom_policy_sb3 import CustomNoCNN, CustomCNN_GAP, CustomCNN_FC, CustomCNN_MobileNet
 import torch as th
 from configparser import ConfigParser
 
@@ -31,7 +31,7 @@ class TrainingThread(QtCore.QThread):
         self.cfg = ConfigParser()
         self.cfg.read(config)
 
-        self.project_name = self.cfg.get('options', 'env_name') + '_' + self.cfg.get('options', 'dynamic_name') + '_'
+        self.project_name = self.cfg.get('options', 'env_name') + '_' + self.cfg.get('options', 'dynamic_name') + '_' + self.cfg.get('options', 'policy_name') + '_'
 
         if self.cfg.getboolean('options', 'navigation_3d'):
             self.project_name += '3D'
@@ -80,21 +80,22 @@ class TrainingThread(QtCore.QThread):
         
         # set policy
         feature_num_state = self.env.dynamic_model.state_feature_length
-        policy_name = self.cfg.get('policy', 'policy_name')
-        if policy_name == 'CustomCNN_fc':
+        policy_name = self.cfg.get('options', 'policy_name')
+        if policy_name == 'CustomCNN_FC':
             feature_num_cnn = 25
-            policy_used = CustomCNN_fc
+            policy_used = CustomCNN_FC
         elif policy_name == 'CustomCNN_GAP':
-            feature_num_cnn = 16
+            feature_num_cnn = 25
             policy_used = CustomCNN_GAP
-        elif policy_name == 'CustomCNN_mobile':
-            feature_num_cnn = 32
-            policy_used = CustomCNN_mobile
+        elif policy_name == 'CustomCNN_MobileNet':
+            feature_num_cnn = 25
+            policy_used = CustomCNN_MobileNet
         elif policy_name == 'CustomNoCNN':
             feature_num_cnn = 25
             policy_used = CustomNoCNN
         else:
-            print('policy select error')
+            raise Exception('policy select error: ', policy_name)
+
         policy_kwargs = dict(
             features_extractor_class=policy_used,
             features_extractor_kwargs=dict(features_dim=feature_num_state+feature_num_cnn,
