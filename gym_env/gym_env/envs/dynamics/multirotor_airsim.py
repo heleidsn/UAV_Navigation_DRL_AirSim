@@ -12,8 +12,7 @@ class MultirotorDynamicsAirsim():
     def __init__(self, cfg) -> None:
         
         # config
-        self.navigation_3d = cfg.getboolean('multirotor', 'navigation_3d')
-        self.control_acc = cfg.getboolean('multirotor', 'control_acc')
+        self.navigation_3d = cfg.getboolean('options', 'navigation_3d')
         self.dt = cfg.getfloat('multirotor', 'dt')
 
         # AirSim Client
@@ -23,48 +22,53 @@ class MultirotorDynamicsAirsim():
         self.client.armDisarm(True)
 
         # start and goal position
-        self.start_position = None
+        self.start_position = [0, 0, 0]
         self.start_random_angle = None
-        self.goal_position = None
+        self.goal_position = [0, 0, 0]
         self.goal_distance = None
         self.goal_random_angle = None
+
+        # states
+        self.x = 0
+        self.y = 0
+        self.z = 0
+        self.v_xy = 0
+        self.v_z = 0
+        self.yaw = 0
+        self.yaw_rate = 0
+
+        # cmd
+        self.v_xy_sp = 0
+        self.v_z_sp = 0
+        self.yaw_rate_sp = 0
         
         # action space
-        self.max_acc_xy = 2.0
-        self.max_vel_x = 5.0
-        self.min_vel_x = 1.0
-        self.max_vel_z = 2.0
-        self.max_vel_yaw_deg = 50.0
-        self.max_vel_yaw_rad = math.radians(self.max_vel_yaw_deg)
+        self.acc_xy_max = cfg.getfloat('multirotor', 'acc_xy_max')
+        self.v_xy_max = cfg.getfloat('multirotor', 'v_xy_max')
+        self.v_xy_min = cfg.getfloat('multirotor', 'v_xy_min')
+        self.v_z_max = cfg.getfloat('multirotor', 'v_z_max')
+        self.yaw_rate_max_deg = cfg.getfloat('multirotor', 'yaw_rate_max_deg')
+        self.yaw_rate_max_rad = math.radians(self.yaw_rate_max_deg)
         self.max_vertical_difference = 5
         
         if self.navigation_3d:
             self.state_feature_length = 6
-            if self.control_acc:
-                self.action_space = spaces.Box(low=np.array([-self.max_acc_xy, -self.max_vel_z, -self.max_vel_yaw_rad]), \
-                                               high=np.array([self.max_acc_xy, self.max_vel_z, self.max_vel_yaw_rad]), dtype=np.float32)
-            else:
-                self.action_space = spaces.Box(low=np.array([self.min_vel_x , -self.max_vel_z, -self.max_vel_yaw_rad]), \
-                                            high=np.array([self.max_vel_x, self.max_vel_z, self.max_vel_yaw_rad]), dtype=np.float32)
+            self.action_space = spaces.Box(low=np.array([self.v_xy_min , -self.v_z_max, -self.yaw_rate_max_rad]), \
+                                            high=np.array([self.v_xy_max, self.v_z_max, self.yaw_rate_max_rad]), dtype=np.float32)
         else:
             self.state_feature_length = 4
-            if self.control_acc:
-                self.action_space = spaces.Box(low=np.array([-self.max_acc_xy, -self.max_vel_yaw_rad]), \
-                                               high=np.array([self.max_acc_xy, self.max_vel_yaw_rad]) 
-                                    )
-            else:
-                self.action_space = spaces.Box(low=np.array([self.min_vel_x , -self.max_vel_yaw_rad]), \
-                                                high=np.array([self.max_vel_x, self.max_vel_yaw_rad]), \
+            self.action_space = spaces.Box(low=np.array([self.v_xy_min , -self.yaw_rate_max_rad]), \
+                                                high=np.array([self.v_xy_max, self.yaw_rate_max_rad]), \
                                                 dtype=np.float32)
 
 
     def reset(self):
         self.client.reset()
         # reset goal
-        self._set_goal_pose()
+        self.update_goal_pose()
 
         # reset start
-        yaw_noise = self.start_random_angle
+        yaw_noise = self.start_random_angle * np.random.random() 
 
         # set airsim pose
         pose = self.client.simGetVehiclePose()
@@ -84,50 +88,49 @@ class MultirotorDynamicsAirsim():
         self.client.simPause(True)
 
     def set_action(self, action):
-        velocity_xy = self.get_velocity()[0]
-        # update dynamics
-        if self.control_acc:
-            acc_xy = action[0]
-            v_xy = velocity_xy  + acc_xy
-            if v_xy > self.max_vel_x:
-                v_xy = self.max_vel_x
-            elif v_xy < self.min_vel_x:
-                v_xy = self.min_vel_x
-        else:
-            v_xy = action[0]
 
-        yaw_rate_sp = action[-1]
-        current_yaw = self.get_attitude()[2]
-        yaw_sp = current_yaw + yaw_rate_sp
+        self.v_xy_sp = action[0]
+        self.yaw_rate_sp = action[-1]
+        if self.navigation_3d:
+            self.v_z_sp = action[1]
+        else:
+            self.v_z_sp = 0
+
+        self.yaw = self.get_attitude()[2]
+        self.yaw_sp = self.yaw + self.yaw_rate_sp * self.dt
+
+        if self.yaw_sp > math.radians(180):
+            self.yaw_sp -= math.pi * 2
+        elif self.yaw_sp < math.radians(-180):
+            self.yaw_sp += math.pi * 2
         
-        vx_local_sp = v_xy * math.cos(yaw_sp)
-        vy_local_sp = v_xy * math.sin(yaw_sp)
+        vx_local_sp = self.v_xy_sp * math.cos(self.yaw_sp)
+        vy_local_sp = self.v_xy_sp * math.sin(self.yaw_sp)
 
         self.client.simPause(False)
         if len(action) == 2:
             self.client.moveByVelocityZAsync(vx_local_sp, vy_local_sp, -self.start_position[2], self.dt,
                                             drivetrain=airsim.DrivetrainType.MaxDegreeOfFreedom,
-                                            yaw_mode=airsim.YawMode(is_rate=True, yaw_or_rate=math.degrees(yaw_rate_sp))).join()
+                                            yaw_mode=airsim.YawMode(is_rate=True, yaw_or_rate=math.degrees(self.yaw_rate_sp))).join()
             # self.client.moveByVelocityZAsync(vx_local_sp, vy_local_sp, -self.start_position[2], self.dt,
             #                                 drivetrain=airsim.DrivetrainType.ForwardOnly,
             #                                 yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=math.degrees(0))).join()
         elif len(action) == 3:
-            vz_local_sp = float(action[1])
-            self.client.moveByVelocityAsync(vx_local_sp, vy_local_sp, -vz_local_sp, self.dt,
+            self.client.moveByVelocityAsync(vx_local_sp, vy_local_sp, -self.v_z_sp, self.dt,
                                             drivetrain=airsim.DrivetrainType.MaxDegreeOfFreedom,
-                                            yaw_mode=airsim.YawMode(is_rate=True, yaw_or_rate=math.degrees(yaw_rate_sp))).join()
+                                            yaw_mode=airsim.YawMode(is_rate=True, yaw_or_rate=math.degrees(self.yaw_rate_sp))).join()
                         
         self.client.simPause(True)
 
-    def _set_goal_pose(self):
+    def update_goal_pose(self):
         distance = self.goal_distance
         noise = np.random.random() * 2 - 1
         angle = noise * self.goal_random_angle
         goal_x = distance * math.cos(angle) + self.start_position[0]
         goal_y = distance * math.sin(angle) + self.start_position[1]
-        goal_z = 5
-
-        self.goal_position = [goal_x, goal_y, goal_z]
+        self.goal_position[0] = goal_x
+        self.goal_position[1] = goal_y
+        self.goal_position[2] = self.start_position[2]
         # print(self.goal_position)
 
     def set_start(self, position, random_angle):
@@ -145,7 +148,6 @@ class MultirotorDynamicsAirsim():
         @return: state_norm
                     normalized state range 0-255
         '''
-        current_velocity = self.get_velocity()
         
         distance = self.get_distance_to_goal_2d()
         relative_yaw = self._get_relative_yaw()  # return relative yaw -pi to pi 
@@ -156,20 +158,21 @@ class MultirotorDynamicsAirsim():
         relative_yaw_norm = (relative_yaw / math.pi / 2 + 0.5 ) * 255
 
         # current speed and angular speed
-        linear_velocity_xy = current_velocity[0]
-        linear_velocity_norm = linear_velocity_xy / self.max_vel_x * 255
-        linear_velocity_z = current_velocity[1]
-        linear_velocity_z_norm = (linear_velocity_z / self.max_vel_z / 2 + 0.5) * 255
-        angular_velocity_norm = (current_velocity[2] / self.max_vel_yaw_rad / 2 + 0.5) * 255
+        velocity = self.get_velocity()
+        linear_velocity_xy = velocity[0]
+        linear_velocity_norm = (linear_velocity_xy - self.v_xy_min) / (self.v_xy_max - self.v_xy_min) * 255
+        linear_velocity_z = velocity[1]
+        linear_velocity_z_norm = (linear_velocity_z / self.v_z_max / 2 + 0.5) * 255
+        angular_velocity_norm = (velocity[2] / self.yaw_rate_max_rad / 2 + 0.5) * 255
 
         if self.navigation_3d:
             # state: distance_h, distance_v, relative yaw, velocity_x, velocity_z, velocity_yaw
-            self.state_raw = np.array([distance, relative_pose_z,  math.degrees(relative_yaw), linear_velocity_xy, linear_velocity_z,  math.degrees(current_velocity[2])])
+            self.state_raw = np.array([distance, relative_pose_z,  math.degrees(relative_yaw), linear_velocity_xy, linear_velocity_z,  math.degrees(velocity[2])])
             state_norm = np.array([distance_norm, vertical_distance_norm, relative_yaw_norm, linear_velocity_norm, linear_velocity_z_norm, angular_velocity_norm])
             state_norm = np.clip(state_norm, 0, 255)
             self.state_norm = state_norm
         else:
-            self.state_raw = np.array([distance, math.degrees(relative_yaw), linear_velocity_xy,  math.degrees(current_velocity[2])])
+            self.state_raw = np.array([distance, math.degrees(relative_yaw), linear_velocity_xy,  math.degrees(velocity[2])])
             state_norm = np.array([distance_norm, relative_yaw_norm, linear_velocity_norm, angular_velocity_norm])
             state_norm = np.clip(state_norm, 0, 255)
             self.state_norm = state_norm
@@ -213,11 +216,14 @@ class MultirotorDynamicsAirsim():
         velocity_z = linear_velocity.z_val
         yaw_rate = angular_velocity.z_val
 
-        return [velocity_xy, velocity_z, yaw_rate]
+        return [velocity_xy, -velocity_z, yaw_rate]
 
     def get_attitude(self):
         self.state_current_attitude = self.client.simGetVehiclePose().orientation
         return airsim.to_eularian_angles(self.state_current_attitude)
+
+    def get_attitude_cmd(self):
+        return [0.0, 0.0, self.yaw_sp]
 
     def get_distance_to_goal_2d(self):
         return math.sqrt(pow(self.get_position()[0] - self.goal_position[0], 2) + pow(self.get_position()[1] - self.goal_position[1], 2))

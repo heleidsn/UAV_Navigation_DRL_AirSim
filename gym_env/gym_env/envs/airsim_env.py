@@ -441,6 +441,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         4. steps
         5. reward
         Save image every 10k steps
+        Used only for 2D explanation
         '''
 
         # create init array if not exist 
@@ -453,7 +454,6 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         position = self.dynamic_model.get_position()
         pose_x = position[0]
         pose_y = position[1]
-        pose_z = position[2] # used for 3D case
 
         index_x = int(np.round(pose_x) + self.work_space_x[1])
         index_y = int(np.round(pose_y) + self.work_space_y[1])
@@ -462,12 +462,12 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         if index_x in range(0, map_size_x) and index_y in range(0, map_size_y):
             self.q_value_map[0, index_x, index_y] = q_value
             self.q_value_map[1, index_x, index_y] = action[0]
-            self.q_value_map[2, index_x, index_y] = action[1]
+            self.q_value_map[2, index_x, index_y] = action[-1]
             self.q_value_map[3, index_x, index_y] = self.total_step
             self.q_value_map[4, index_x, index_y] = reward
             self.q_value_map[5, index_x, index_y] = q_value
             self.q_value_map[6, index_x, index_y] = action[0]
-            self.q_value_map[7, index_x, index_y] = action[1]
+            self.q_value_map[7, index_x, index_y] = action[-1]
             self.q_value_map[8, index_x, index_y] = reward
         else:
             print('Error: X:{} and Y:{} is outside of range 0~mapsize (visual_log_q_value)')

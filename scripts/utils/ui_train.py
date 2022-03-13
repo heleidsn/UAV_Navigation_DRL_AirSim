@@ -1,7 +1,7 @@
 '''
 @Author: Lei He
 @Date: 2020-06-01 22:52:40
-LastEditTime: 2022-03-10 21:11:57
+LastEditTime: 2022-03-12 20:26:56
 @Description: 
 @Github: https://github.com/heleidsn
 '''
@@ -328,8 +328,8 @@ class TrainingUi(QWidget):
     def attitude_plot_cb(self, step, attitude, attitude_cmd):
         """ plot attitude (pitch, roll, yaw) and the cmd data
         """
-        self.update_value_list(self.pitch_list, attitude[0])
-        self.update_value_list(self.roll_list, attitude[1])
+        self.update_value_list(self.pitch_list, math.degrees(attitude[0]))
+        self.update_value_list(self.roll_list, math.degrees(attitude[1]))
         self.update_value_list(self.yaw_list, math.degrees(attitude[2]))
 
         self.plot_pitch.setData(self.pitch_list, pen=self.pen_red)

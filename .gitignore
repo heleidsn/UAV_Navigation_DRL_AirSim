@@ -4,3 +4,4 @@ wandb/*
 logs_final/
 gym_env/gym_env.egg-info/
 scripts/utils/__pycache__/custom_policy_sb3.cpython-38.pyc
+scripts/visulization/data/*
