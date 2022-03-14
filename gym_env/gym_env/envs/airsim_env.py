@@ -191,7 +191,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             print('done', done)
             keyboard.wait('a')
 
-        if self.generate_q_map:
+        if self.generate_q_map and self.cfg.get('options', 'algo') == 'TD3':
             if self.model is not None:
                 with th.no_grad():
                     # get q-value for td3
@@ -380,15 +380,16 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 #! -----------used for plot or show states------------------------------------------------------------------
 
     def print_train_info(self, action, reward, info):
-        feature_all = self.model.actor.features_extractor.feature_all
-        self.client.simPrintLogMessage('feature_all: ', str(feature_all))
+        if self.cfg.get('options', 'algo') == 'TD3':
+            feature_all = self.model.actor.features_extractor.feature_all
+            self.client.simPrintLogMessage('feature_all: ', str(feature_all))
+        
         msg_train_info = "EP: {} Step: {} Total_step: {}".format(self.episode_num, self.step_num, self.total_step)
 
         self.client.simPrintLogMessage('Train: ', msg_train_info)
         self.client.simPrintLogMessage('Action: ', str(action))
         self.client.simPrintLogMessage('reward: ', "{:4.4f} total: {:4.4f}".format(reward, self.cumulated_episode_reward))
         self.client.simPrintLogMessage('Info: ', str(info))
-        self.client.simPrintLogMessage('Feature_all: ', str(feature_all))
         self.client.simPrintLogMessage('Feature_norm: ', str(self.dynamic_model.state_norm))
         self.client.simPrintLogMessage('Feature_raw: ', str(self.dynamic_model.state_raw))
 

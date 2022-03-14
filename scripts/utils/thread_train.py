@@ -1,5 +1,7 @@
 import datetime
+from operator import mod
 import os, sys
+from cv2 import log
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(CURRENT_DIR))
 sys.path.append(r"C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\scripts")
@@ -7,7 +9,7 @@ sys.path.append(r"C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\scri
 import gym
 import gym_env
 import numpy as np
-from stable_baselines3 import TD3
+from stable_baselines3 import TD3, PPO, SAC
 from stable_baselines3.common.noise import NormalActionNoise
 from torch.utils.tensorboard import SummaryWriter
 # import wandb
@@ -31,7 +33,7 @@ class TrainingThread(QtCore.QThread):
         self.cfg = ConfigParser()
         self.cfg.read(config)
 
-        self.project_name = self.cfg.get('options', 'env_name') + '_' + self.cfg.get('options', 'dynamic_name') + '_' + self.cfg.get('options', 'policy_name') + '_'
+        self.project_name = self.cfg.get('options', 'env_name') + '_' + self.cfg.get('options', 'dynamic_name') + '_'
 
         if self.cfg.getboolean('options', 'navigation_3d'):
             self.project_name += '3D'
@@ -59,7 +61,7 @@ class TrainingThread(QtCore.QThread):
         # init folders
         now = datetime.datetime.now()
         now_string = now.strftime('%Y_%m_%d_%H_%M')
-        file_path = 'logs/' + self.project_name + '/' + now_string
+        file_path = 'logs/' + self.project_name + '/' + now_string + '_' + self.cfg.get('options', 'policy_name') + '_' + self.cfg.get('options', 'algo')
         log_path = file_path + '/tb_logs'
         model_path = file_path + '/models'
         config_path = file_path + '/config'
@@ -72,11 +74,6 @@ class TrainingThread(QtCore.QThread):
         # save config file
         with open(config_path + '\config.ini', 'w') as configfile:
             self.cfg.write(configfile)
-        
-        # The noise objects for TD3
-        n_actions = self.env.action_space.shape[-1]
-        noise_sigma = self.cfg.getfloat('TD3', 'action_noise_sigma') * np.ones(n_actions)
-        action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=noise_sigma)
         
         # set policy
         feature_num_state = self.env.dynamic_model.state_feature_length
@@ -103,6 +100,39 @@ class TrainingThread(QtCore.QThread):
             activation_fn=th.nn.ReLU
         )
         policy_kwargs['net_arch']=[64, 32]
+        
+        algo = self.cfg.get('options', 'algo')
+        print('algo: ', algo)
+        if algo == 'PPO':
+            model = PPO('CnnPolicy', self.env,
+                        policy_kwargs=policy_kwargs,
+                        tensorboard_log=log_path,
+                        seed=0, verbose=2)
+        elif algo == 'SAC':
+            model = SAC('CnnPolicy', self.env,
+                        policy_kwargs=policy_kwargs,
+                        tensorboard_log=log_path,
+                        seed=0, verbose=2)
+        elif algo == 'TD3':
+            # The noise objects for TD3
+            n_actions = self.env.action_space.shape[-1]
+            noise_sigma = self.cfg.getfloat('TD3', 'action_noise_sigma') * np.ones(n_actions)
+            action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=noise_sigma)
+            model = TD3('CnnPolicy', self.env, 
+                        action_noise=action_noise,
+                        learning_rate=self.cfg.getfloat('TD3', 'learning_rate'),
+                        gamma=self.cfg.getfloat('TD3', 'gamma'),
+                        policy_kwargs=policy_kwargs,
+                        learning_starts=self.cfg.getint('TD3', 'learning_starts'),
+                        batch_size=self.cfg.getint('TD3', 'batch_size'),
+                        train_freq=(self.cfg.getint('TD3', 'train_freq'), 'step'),
+                        gradient_steps=self.cfg.getint('TD3', 'gradient_steps'),
+                        buffer_size=self.cfg.getint('TD3', 'buffer_size'),
+                        tensorboard_log=log_path,
+                        seed=0, verbose=2)
+        else:
+            raise Exception('Invalid algo name : ', algo)
+            
 
         # TODO create eval_callback
         # eval_freq = self.cfg.getint('TD3', 'eval_freq')
@@ -110,28 +140,18 @@ class TrainingThread(QtCore.QThread):
         # eval_callback = EvalCallback(self.env, best_model_save_path= file_path + '/eval',
         #                      log_path= file_path + '/eval', eval_freq=eval_freq, n_eval_episodes=n_eval_episodes,
         #                      deterministic=True, render=False)
-        model = TD3('CnnPolicy', self.env, 
-                    action_noise=action_noise,
-                    learning_rate=self.cfg.getfloat('TD3', 'learning_rate'),
-                    gamma=self.cfg.getfloat('TD3', 'gamma'),
-                    policy_kwargs=policy_kwargs,
-                    learning_starts=self.cfg.getint('TD3', 'learning_starts'),
-                    batch_size=self.cfg.getint('TD3', 'batch_size'),
-                    train_freq=(self.cfg.getint('TD3', 'train_freq'), 'step'),
-                    gradient_steps=self.cfg.getint('TD3', 'gradient_steps'),
-                    buffer_size=self.cfg.getint('TD3', 'buffer_size'),
-                    tensorboard_log=log_path,
-                    seed=0,
-                    verbose=1,
-                    )
+        
         # train
         print('start training model')
-        total_timesteps = self.cfg.getint('TD3', 'total_timesteps')
+        total_timesteps = self.cfg.getint('options', 'total_timesteps')
         self.env.model = model
         self.env.data_path = data_path
 
         if self.cfg.getboolean('options', 'use_wandb'):
-            wandb.watch(model.actor, log_freq=100) # log gradients
+            if algo == 'TD3':
+                wandb.watch(model.actor, log_freq=100) # log gradients
+            elif algo == 'PPO':
+                wandb.watch(model.policy, log_freq=100, log="all")
             model.learn(
                 total_timesteps,
                 callback=WandbCallback(

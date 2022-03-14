@@ -97,23 +97,28 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
 
         self.conv1 = nn.Sequential(
             nn.Conv2d(1, 8, kernel_size=3, stride=1, padding='same'),
-            nn.ReLU(),
+            nn.BatchNorm2d(8),
+            nn.Tanh(),
             nn.MaxPool2d(2, 2)  # [1, 8, 40, 48]
         )
 
         self.conv2 = nn.Sequential(
             nn.Conv2d(8, 16, kernel_size=3, stride=1, padding='same'),
-            nn.ReLU(),
+            nn.BatchNorm2d(16),
+            nn.Tanh(),
             nn.MaxPool2d(2, 2),  # [1, 8, 20, 24]
             # nn.BatchNorm2d(8, affine=False)
         )
 
         self.conv3 = nn.Sequential(
             nn.Conv2d(16, self.feature_num_cnn, kernel_size=3, stride=1, padding='same'),
-            nn.ReLU(),
+            nn.BatchNorm2d(self.feature_num_cnn),
+            nn.Tanh(),
             nn.MaxPool2d(2, 2),  # [1, 8, 10, 12]
         )
         self.gap_layer = nn.AvgPool2d(kernel_size=(10, 12), stride=1)
+
+        self.batch_layer = nn.BatchNorm1d(self.feature_num_cnn)
 
         # nn.init.kaiming_normal_(self.conv1[0].weight, a=0, mode='fan_in')
         # nn.init.kaiming_normal_(self.conv2[0].weight, a=0, mode='fan_in')
@@ -154,11 +159,11 @@ class CustomCNN_GAP(BaseFeaturesExtractor):
         cnn_feature = cnn_feature.squeeze(dim=3) # [1, 8, 1]
         cnn_feature = cnn_feature.squeeze(dim=2) # [1, 8]
         # cnn_feature = th.clamp(cnn_feature,-1,2)
-        # cnn_feature = self.batch_norm_layer(cnn_feature)
+        # cnn_feature = self.batch_layer(cnn_feature)
 
         state_feature = observations[:, 1, 0, 0:self.feature_num_state]
         # transfer state feature from 0~1 to -1~1
-        # state_feature = state_feature*2 - 1
+        state_feature = state_feature*2 - 1
 
         x = th.cat((cnn_feature, state_feature), dim=1)
         self.feature_all = x  # use  to update feature before FC
@@ -311,8 +316,8 @@ class CustomCNN_MobileNet(BaseFeaturesExtractor):
         )
         self.linear_small = nn.Sequential(
             nn.Linear(576, self.feature_num_cnn),
+            nn.ReLU(),
             # nn.BatchNorm1d(32),
-            nn.Tanh(),
             # nn.Dropout(0.25)
         )
         
