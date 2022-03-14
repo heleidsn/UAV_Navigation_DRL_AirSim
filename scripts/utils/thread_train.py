@@ -105,6 +105,8 @@ class TrainingThread(QtCore.QThread):
         print('algo: ', algo)
         if algo == 'PPO':
             model = PPO('CnnPolicy', self.env,
+                        # n_steps = 200,
+                        learning_rate=self.cfg.getfloat('PPO', 'learning_rate'),
                         policy_kwargs=policy_kwargs,
                         tensorboard_log=log_path,
                         seed=0, verbose=2)
@@ -114,6 +116,7 @@ class TrainingThread(QtCore.QThread):
                         buffer_size=self.cfg.getint('SAC', 'buffer_size'),
                         learning_starts=self.cfg.getint('SAC', 'learning_starts'),
                         learning_rate=self.cfg.getfloat('SAC', 'learning_rate'),
+                        batch_size=self.cfg.getint('SAC', 'batch_size'),
                         train_freq=(self.cfg.getint('SAC', 'train_freq'), 'step'),
                         gradient_steps=self.cfg.getint('SAC', 'gradient_steps'),
                         tensorboard_log=log_path,
