@@ -111,6 +111,11 @@ class TrainingThread(QtCore.QThread):
         elif algo == 'SAC':
             model = SAC('CnnPolicy', self.env,
                         policy_kwargs=policy_kwargs,
+                        buffer_size=self.cfg.getint('SAC', 'buffer_size'),
+                        learning_starts=self.cfg.getint('SAC', 'learning_starts'),
+                        learning_rate=self.cfg.getfloat('SAC', 'learning_rate'),
+                        train_freq=(self.cfg.getint('SAC', 'train_freq'), 'step'),
+                        gradient_steps=self.cfg.getint('SAC', 'gradient_steps'),
                         tensorboard_log=log_path,
                         seed=0, verbose=2)
         elif algo == 'TD3':
@@ -148,14 +153,14 @@ class TrainingThread(QtCore.QThread):
         self.env.data_path = data_path
 
         if self.cfg.getboolean('options', 'use_wandb'):
-            if algo == 'TD3':
+            if algo == 'TD3' or algo == 'SAC':
                 wandb.watch(model.actor, log_freq=100) # log gradients
             elif algo == 'PPO':
                 wandb.watch(model.policy, log_freq=100, log="all")
             model.learn(
                 total_timesteps,
                 callback=WandbCallback(
-                    model_save_freq=2000,
+                    model_save_freq=10000,
                     # gradient_save_freq=100,
                     model_save_path=model_path,
                     verbose=2,

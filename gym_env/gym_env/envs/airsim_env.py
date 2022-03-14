@@ -191,7 +191,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             print('done', done)
             keyboard.wait('a')
 
-        if self.generate_q_map and self.cfg.get('options', 'algo') == 'TD3':
+        if self.generate_q_map and (self.cfg.get('options', 'algo') == 'TD3' or self.cfg.get('options', 'algo') == 'SAC'):
             if self.model is not None:
                 with th.no_grad():
                     # get q-value for td3
@@ -474,7 +474,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             print('Error: X:{} and Y:{} is outside of range 0~mapsize (visual_log_q_value)')
 
         # save array every record_step steps 
-        record_step = 5000
+        record_step = self.cfg.getint('options', 'q_map_save_steps')
         if (self.total_step+1) % record_step == 0:
             if self.data_path is not None:
                 np.save(self.data_path + '/q_value_map_{}'.format(self.total_step+1), self.q_value_map)
