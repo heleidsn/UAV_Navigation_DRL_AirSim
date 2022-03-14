@@ -380,9 +380,12 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 #! -----------used for plot or show states------------------------------------------------------------------
 
     def print_train_info(self, action, reward, info):
-        if self.cfg.get('options', 'algo') == 'TD3':
+        if self.cfg.get('options', 'algo') == 'TD3' or self.cfg.get('options', 'algo') == 'SAC':
             feature_all = self.model.actor.features_extractor.feature_all
-            self.client.simPrintLogMessage('feature_all: ', str(feature_all))
+        elif self.cfg.get('options', 'algo') == 'PPO':
+            feature_all = self.model.policy.features_extractor.feature_all
+        
+        self.client.simPrintLogMessage('feature_all: ', str(feature_all))
         
         msg_train_info = "EP: {} Step: {} Total_step: {}".format(self.episode_num, self.step_num, self.total_step)
 
