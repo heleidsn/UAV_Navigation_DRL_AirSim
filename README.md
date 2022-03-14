@@ -21,8 +21,9 @@ This is a new repo used for training UAV navigation (local path planning) policy
 
 ## Requirements
 
+- Python 3.8
 - [AirSim](https://microsoft.github.io/AirSim/) v1.6.0
-- pytorch 1.10.1
+- pytorch 1.10.1 with gpu
 - gym-0.21.0
 - Pyqt5 5.15.6
 - keyboard 0.13.5
