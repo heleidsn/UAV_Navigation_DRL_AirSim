@@ -14,7 +14,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from torch.utils.tensorboard import SummaryWriter
 # import wandb
 
-from utils.custom_policy_sb3 import CustomNoCNN, CustomCNN_GAP, CustomCNN_FC, CustomCNN_MobileNet
+from utils.custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet
 import torch as th
 from configparser import ConfigParser
 
@@ -48,6 +48,8 @@ class TrainingThread(QtCore.QThread):
         if self.cfg.getboolean('options', 'use_wandb'):
             wandb.init(
                 project=self.project_name,
+                notes="test",
+                name=self.cfg.get('options', 'policy_name') + '-' + self.cfg.get('options', 'algo') + '-M1',
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 save_code=True,  # optional
             )
@@ -77,26 +79,25 @@ class TrainingThread(QtCore.QThread):
         
         # set policy
         feature_num_state = self.env.dynamic_model.state_feature_length
+        feature_num_cnn = self.cfg.getint('options', 'cnn_feature_num')
         policy_name = self.cfg.get('options', 'policy_name')
-        if policy_name == 'CustomCNN_FC':
-            feature_num_cnn = 25
-            policy_used = CustomCNN_FC
-        elif policy_name == 'CustomCNN_GAP':
-            feature_num_cnn = 25
-            policy_used = CustomCNN_GAP
-        elif policy_name == 'CustomCNN_MobileNet':
-            feature_num_cnn = 25
-            policy_used = CustomCNN_MobileNet
-        elif policy_name == 'CustomNoCNN':
-            feature_num_cnn = 25
-            policy_used = CustomNoCNN
+        if policy_name == 'CNN_FC':
+            policy_used = CNN_FC
+        elif policy_name == 'CNN_GAP':
+            policy_used = CNN_GAP
+        elif policy_name == 'CNN_GAP_BN':
+            policy_used = CNN_GAP_BN
+        elif policy_name == 'CNN_MobileNet':
+            policy_used = CNN_MobileNet
+        elif policy_name == 'No_CNN':
+            policy_used = No_CNN
         else:
             raise Exception('policy select error: ', policy_name)
 
         policy_kwargs = dict(
             features_extractor_class=policy_used,
             features_extractor_kwargs=dict(features_dim=feature_num_state+feature_num_cnn,
-                                           state_feature_dim=feature_num_state),  # 指定最后total feature 数目 应该是CNN+state
+                                           state_feature_dim=feature_num_state), 
             activation_fn=th.nn.ReLU
         )
         policy_kwargs['net_arch']=[64, 32]
