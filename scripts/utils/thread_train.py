@@ -112,7 +112,11 @@ class TrainingThread(QtCore.QThread):
                         tensorboard_log=log_path,
                         seed=0, verbose=2)
         elif algo == 'SAC':
+            n_actions = self.env.action_space.shape[-1]
+            noise_sigma = self.cfg.getfloat('SAC', 'action_noise_sigma') * np.ones(n_actions)
+            action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=noise_sigma)
             model = SAC('CnnPolicy', self.env,
+                        action_noise=action_noise,
                         policy_kwargs=policy_kwargs,
                         buffer_size=self.cfg.getint('SAC', 'buffer_size'),
                         learning_starts=self.cfg.getint('SAC', 'learning_starts'),
