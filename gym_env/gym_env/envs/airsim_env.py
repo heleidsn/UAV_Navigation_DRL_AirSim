@@ -62,7 +62,16 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             raise Exception("Invalid dynamic_name!", self.dynamic_name)
 
         # set start and goal position according to different environment
-        if self.env_name == 'NH':
+        if self.env_name == 'NH_center':
+            start_position = [0, 0, 5]
+            goal_rect = [-128, -128, 128, 128] # rectangular goal pose
+            goal_distance = 90
+            self.dynamic_model.set_start(start_position, random_angle=math.pi*2)
+            self.dynamic_model.set_goal(random_angle=math.pi*2, rect=goal_rect)
+            self.work_space_x = [-140, 140]
+            self.work_space_y = [-140, 140]
+            self.work_space_z = [0.5, 20]
+        elif self.env_name == 'NH_tree':
             start_position = [110, 180, 5]
             goal_distance = 90
             self.dynamic_model.set_start(start_position, random_angle=0)
@@ -81,7 +90,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         elif self.env_name == 'SimpleAvoid':
             start_position = [0, 0, 5]
             goal_distance = 50
-            self.dynamic_model.set_start([0, 0, 5], random_angle=math.pi*2)
+            self.dynamic_model.set_start(start_position, random_angle=math.pi*2)
             self.dynamic_model.set_goal(distance = goal_distance, random_angle=math.pi*2)
             self.work_space_x = [start_position[0] - goal_distance - 10, start_position[0] + goal_distance + 10]
             self.work_space_y = [start_position[1] - goal_distance - 10, start_position[1] + goal_distance + 10]
@@ -268,7 +277,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         if not done:
             distance_now = self.get_distance_to_goal_3d()
-            reward_distance = (self.previous_distance_from_des_point - distance_now)
+            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 100  # normalized to 100 according to goal_distance
             self.previous_distance_from_des_point = distance_now
 
             reward_obs = 0
