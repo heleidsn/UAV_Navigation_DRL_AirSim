@@ -1,3 +1,4 @@
+from cmath import inf
 import datetime
 import os, sys
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12,8 +13,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from torch.utils.tensorboard import SummaryWriter
 # import wandb
 
-from utils.custom_policy_sb3 import CustomNoCNN, CustomCNN_GAP, CustomCNN_fc, CustomCNN_mobile
-import torch as th
+from utils.custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet
 from configparser import ConfigParser
 
 from PyQt5 import QtWidgets, QtCore
@@ -48,11 +48,23 @@ class EvaluateThread(QtCore.QThread):
         time_step = 0
         reward_sum = np.array([.0])
         episode_successes = []
+        traj_list_all = []
+        action_list_all = []
+        state_list_all = []
+        
+        traj_list = []
+        action_list = []
+        state_raw_list = []
+        step_num_list = []
 
         while episode_num < self.total_eval_episodes:
             unscaled_action, _ = model.predict(obs)
             time_step += 1
             new_obs, reward, done, info, = self.env.step(unscaled_action)
+            pose = self.env.dynamic_model.get_position()
+            traj_list.append(pose)
+            action_list.append(unscaled_action)
+            state_raw_list.append(self.env.dynamic_model.state_raw)
 
             obs = new_obs
             reward_sum[-1] += reward
@@ -64,13 +76,33 @@ class EvaluateThread(QtCore.QThread):
                 episode_successes.append(float(maybe_is_success))
                 reward_sum = np.append(reward_sum, .0)
                 obs = self.env.reset()
+                if info.get('is_success'):
+                    traj_list.append(1)
+                    action_list.append(1)
+                    step_num_list.append(info.get('step_num'))
+                elif info.get('is_crash'):
+                    traj_list.append(2)
+                    action_list.append(2)
+                else:
+                    traj_list.append(3)
+                    action_list.append(3)
+                # traj_list.append(info)
+                traj_list_all.append(traj_list)
+                action_list_all.append(action_list)
+                state_list_all.append(state_raw_list)
+                traj_list = []
+                action_list = []
+                state_raw_list = []
 
-        print('Average episode reward: ', reward_sum[:self.total_eval_episodes].mean(), 'Success rate:', np.mean(episode_successes))
+        np.save('traj_eval_{}'.format(self.total_eval_episodes), traj_list_all)
+        np.save('action_eval_{}'.format(self.total_eval_episodes), action_list_all)
+        np.save('state_eval_{}'.format(self.total_eval_episodes), state_list_all)
+        print('Average episode reward: ', reward_sum[:self.total_eval_episodes].mean(), 'Success rate:', np.mean(episode_successes), 'average step num: ', np.mean(step_num_list))
         
 def main():
-    config_file = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\2022_03_10_16_06_test\config\config.ini'
-    model_file = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\2022_03_10_16_06_test\models\2022_03_10_16_06_test_50000.zip'
-    total_eval_episodes = 10
+    config_file = r'configs/config_new.ini'
+    model_file = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\plot_results\data\NOCNN-TD3-M3\2022_03_13_08_50\models\model_sb3.zip'
+    total_eval_episodes = 50
     evaluate_thread = EvaluateThread(config_file, model_file, total_eval_episodes)
     evaluate_thread.run()
     # evaluate_thread.terminate()
