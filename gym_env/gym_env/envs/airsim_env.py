@@ -71,6 +71,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_x = [-140, 140]
             self.work_space_y = [-140, 140]
             self.work_space_z = [0.5, 20]
+            self.max_episode_steps = 1000
         elif self.env_name == 'NH_tree':
             start_position = [110, 180, 5]
             goal_distance = 90
@@ -79,6 +80,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_x = [start_position[0], start_position[0] + goal_distance + 10]
             self.work_space_y = [start_position[1] - 30, start_position[1] + 30]
             self.work_space_z = [0.5, 10]
+            self.max_episode_steps = 400
         elif self.env_name == 'City':
             start_position = [40, -30, 40]
             goal_position = [280, -200, 40]
@@ -87,6 +89,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_x = [-100, 350]
             self.work_space_y = [-300, 100]
             self.work_space_z = [0, 100]
+            self.max_episode_steps = 400
         elif self.env_name == 'SimpleAvoid':
             start_position = [0, 0, 5]
             goal_distance = 50
@@ -95,6 +98,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_x = [start_position[0] - goal_distance - 10, start_position[0] + goal_distance + 10]
             self.work_space_y = [start_position[1] - goal_distance - 10, start_position[1] + goal_distance + 10]
             self.work_space_z = [0.5, 50]
+            self.max_episode_steps = 400
         else:
             raise Exception("Invalid env_name!", self.env_name)
             
@@ -120,7 +124,6 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         # other settings
         self.crash_distance = cfg.getint('environment', 'crash_distance')
         self.accept_radius = cfg.getint('environment', 'accept_radius')
-        self.max_episode_steps = cfg.getint('environment', 'max_episode_steps')
         self.max_depth_meters = cfg.getint('environment', 'max_depth_meters')
 
         self.screen_height = cfg.getint('environment', 'screen_height')

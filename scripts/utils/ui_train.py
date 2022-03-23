@@ -1,7 +1,7 @@
 '''
 @Author: Lei He
 @Date: 2020-06-01 22:52:40
-LastEditTime: 2022-03-12 20:26:56
+LastEditTime: 2022-03-23 09:27:19
 @Description: 
 @Github: https://github.com/heleidsn
 '''
@@ -378,8 +378,8 @@ class TrainingUi(QWidget):
         self.traj_pw.showGrid(x=True,y=True)
         # self.traj_pw.setXRange(max=350, min=-100)
         # self.traj_pw.setYRange(max=100, min=-300)
-        self.traj_pw.setXRange(max=60, min=-60)
-        self.traj_pw.setYRange(max=60, min=-60)
+        self.traj_pw.setXRange(max=140, min=-140)
+        self.traj_pw.setYRange(max=140, min=-140)
         self.traj_plot = self.traj_pw.plot()
         self.traj_pw.invertY()
 
@@ -391,6 +391,8 @@ class TrainingUi(QWidget):
             self.traj_pw.addItem(self.background_img)
             self.background_img.setZValue(-100)  # make sure image is behind other data
             self.background_img.setRect(pg.QtCore.QRectF(-60, -60, 120, 120))
+            self.traj_pw.setXRange(max=60, min=-60)
+            self.traj_pw.setYRange(max=60, min=-60)
 
         layout.addWidget(self.traj_pw)
 
