@@ -27,6 +27,7 @@ class MultirotorDynamicsAirsim():
         self.goal_position = [0, 0, 0]
         self.goal_distance = None
         self.goal_random_angle = None
+        self.goal_rect = None
 
         # states
         self.x = 0
@@ -92,7 +93,7 @@ class MultirotorDynamicsAirsim():
         self.v_xy_sp = action[0]
         self.yaw_rate_sp = action[-1]
         if self.navigation_3d:
-            self.v_z_sp = action[1]
+            self.v_z_sp = float(action[1])
         else:
             self.v_z_sp = 0
 
@@ -123,23 +124,62 @@ class MultirotorDynamicsAirsim():
         self.client.simPause(True)
 
     def update_goal_pose(self):
-        distance = self.goal_distance
-        noise = np.random.random() * 2 - 1
-        angle = noise * self.goal_random_angle
-        goal_x = distance * math.cos(angle) + self.start_position[0]
-        goal_y = distance * math.sin(angle) + self.start_position[1]
+        # if goal is given by rectangular mode
+        if self.goal_rect is None:
+            distance = self.goal_distance
+            noise = np.random.random()
+            angle = noise * self.goal_random_angle  # (0~2pi)
+            goal_x = distance * math.cos(angle) + self.start_position[0]
+            goal_y = distance * math.sin(angle) + self.start_position[1]
+        else:
+            goal_x, goal_y = self.get_goal_from_rect(self.goal_rect, self.goal_random_angle)
+            self.goal_distance = math.sqrt(goal_x*goal_x + goal_y*goal_y)
         self.goal_position[0] = goal_x
         self.goal_position[1] = goal_y
         self.goal_position[2] = self.start_position[2]
-        # print(self.goal_position)
+        # print('New goal pose: ', self.goal_position)
 
     def set_start(self, position, random_angle):
         self.start_position = position
         self.start_random_angle = random_angle
     
-    def set_goal(self, distance, random_angle):
-        self.goal_distance = distance
+    def set_goal(self, distance=None, random_angle=0, rect=None):
+        if distance is not None:
+            self.goal_distance = distance
         self.goal_random_angle = random_angle
+        if rect is not None:
+            self.goal_rect = rect
+            
+    def get_goal_from_rect(self, rect_set, random_angle_set):
+        rect = rect_set
+        random_angle=random_angle_set
+        noise = np.random.random()  # (-0.5~0.5)
+        angle = random_angle * noise - math.pi   # -pi~pi
+        rect = [-128, -128, 128, 128]
+        # goal_x = 100*math.sin(angle)
+        # goal_y = 100*math.cos(angle)
+
+        if abs(angle) == math.pi/2:
+            goal_x = 0
+            if angle > 0:
+                goal_y = rect[3]
+            else:
+                goal_y = rect[1]
+        if abs(angle) <= math.pi/4:
+            goal_x = rect[2]
+            goal_y = goal_x*math.tan(angle)
+        elif abs(angle) > math.pi/4 and abs(angle) <= math.pi/4*3:
+            if angle > 0:
+                goal_y = rect[3]
+                goal_x = goal_y/math.tan(angle)
+            else:
+                goal_y = rect[1]
+                goal_x = goal_y/math.tan(angle)
+        else:
+            goal_x = rect[0]
+            goal_y = goal_x * math.tan(angle)
+        
+        return goal_x, goal_y
 
     def _get_state_feature(self):
         '''

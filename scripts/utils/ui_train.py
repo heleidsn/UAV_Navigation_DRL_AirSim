@@ -1,7 +1,7 @@
 '''
 @Author: Lei He
 @Date: 2020-06-01 22:52:40
-LastEditTime: 2022-03-23 09:27:19
+LastEditTime: 2022-03-24 10:26:04
 @Description: 
 @Github: https://github.com/heleidsn
 '''
@@ -393,7 +393,16 @@ class TrainingUi(QWidget):
             self.background_img.setRect(pg.QtCore.QRectF(-60, -60, 120, 120))
             self.traj_pw.setXRange(max=60, min=-60)
             self.traj_pw.setYRange(max=60, min=-60)
-
+        elif self.cfg.get('options', 'env_name') == 'NH_center':
+            background_image_path = 'resources/env_maps/NH_center.png'
+            img_data = Image.open(background_image_path)
+            image=np.copy(img_data)
+            self.background_img = pg.ImageItem(image)
+            self.traj_pw.addItem(self.background_img)
+            self.background_img.setZValue(-100)  # make sure image is behind other data
+            self.background_img.setRect(pg.QtCore.QRectF(-135, -135, 270, 270))
+            self.traj_pw.setXRange(max=135, min=-135)
+            self.traj_pw.setYRange(max=135, min=-135)
         layout.addWidget(self.traj_pw)
 
         traj_plot_groupbox.setLayout(layout)
@@ -407,8 +416,8 @@ class TrainingUi(QWidget):
         self.traj_pw.clear()
 
         # set background image
-        if self.cfg.get('options', 'env_name') == 'SimpleAvoid':
-            self.traj_pw.addItem(self.background_img)
+        if self.cfg.get('options', 'env_name') == 'SimpleAvoid' or self.cfg.get('options', 'env_name') == 'NH_center':
+            self.traj_pw.addItem(self.background_img)         
         
         # plot start, goal and trajectory
         self.traj_pw.plot([start[0]], [start[1]], symbol='o')

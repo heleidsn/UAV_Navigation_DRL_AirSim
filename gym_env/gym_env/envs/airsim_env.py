@@ -5,7 +5,7 @@ from webbrowser import Elinks
 import gym
 from gym import spaces
 import airsim
-from configparser import ConfigParser
+from configparser import ConfigParser, NoOptionError
 from matplotlib.pyplot import setp
 import keyboard
 
@@ -136,6 +136,13 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                                             dtype=np.uint8)
 
         self.action_space = self.dynamic_model.action_space
+        
+        self.reward_type = None
+        try:
+            self.reward_type = cfg.get('options', 'reward_type')
+            print('Reward type: ', self.reward_type)
+        except NoOptionError:
+            self.reward_type = None
 
 
     def reset(self):
@@ -177,8 +184,11 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         
         if self.dynamic_name == 'SimpleFixedwing':
             reward = self.compute_reward_fixedwing(done, action)
+        elif self.reward_type == 'reward_with_action':
+            reward = self.compute_reward_with_action(done, action)
         else:
             reward = self.compute_reward(done, action)
+            
         self.cumulated_episode_reward += reward
 
         self.print_train_info(action, reward, info)
@@ -335,6 +345,40 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         return reward
 
+    def compute_reward_with_action(self, done, action):
+        reward = 0
+        reward_reach = 50
+        reward_crash = -10
+        reward_outside = -10
+        
+        step_cost = 0.05 # 50 for max 1000 steps
+
+        if not done:
+            distance_now = self.get_distance_to_goal_3d()
+            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 100  # normalized to 100 according to goal_distance
+            self.previous_distance_from_des_point = distance_now
+
+            reward_obs = 0
+            action_cost = 0
+
+            # add action cost
+            v_xy_cost = 0.05 * abs(action[0]-5) / 5  # speed 0-10  cruise speed is 5, punish for too fast and too slow
+            yaw_rate_cost = 0.05 * abs(action[-1]) / self.dynamic_model.yaw_rate_max_rad
+            if self.dynamic_model.navigation_3d:
+                v_z_cost = 0.05 * abs(action[1]) / self.dynamic_model.v_z_max
+                action_cost += v_z_cost
+            action_cost += (v_xy_cost + yaw_rate_cost)
+
+            reward = reward_distance - reward_obs - action_cost
+        else:
+            if self.is_in_desired_pose():
+                reward = reward_reach
+            if self.is_crashed():
+                reward = reward_crash
+            if self.is_not_inside_workspace():
+                reward = reward_outside
+
+        return reward
 #! ------------------ is done-----------------------------------------------
     def is_done(self):
         episode_done = False

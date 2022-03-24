@@ -8,7 +8,7 @@ sys.path.append(r"C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\scri
 import gym
 import gym_env
 import numpy as np
-from stable_baselines3 import TD3
+from stable_baselines3 import TD3, SAC, PPO
 from stable_baselines3.common.noise import NormalActionNoise
 from torch.utils.tensorboard import SummaryWriter
 # import wandb
@@ -39,8 +39,15 @@ class EvaluateThread(QtCore.QThread):
 
     def run(self):
         print('start evaluation')
-
-        model = TD3.load(self.model_file, env=self.env)
+        algo = self.cfg.get('options', 'algo')
+        if algo == 'TD3':
+            model = TD3.load(self.model_file, env=self.env)
+        elif algo == 'SAC':
+            model = SAC.load(self.model_file, env=self.env)
+        elif algo == 'PPO':
+            model = PPO.load(self.model_file, env=self.env)
+        else:
+            raise Exception('algo set error {}'.format(algo))
         self.env.model = model
 
         obs = self.env.reset()
@@ -100,8 +107,8 @@ class EvaluateThread(QtCore.QThread):
         print('Average episode reward: ', reward_sum[:self.total_eval_episodes].mean(), 'Success rate:', np.mean(episode_successes), 'average step num: ', np.mean(step_num_list))
         
 def main():
-    config_file = r'configs/config_new.ini'
-    model_file = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\plot_results\data\NOCNN-TD3-M3\2022_03_13_08_50\models\model_sb3.zip'
+    config_file = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\NH_center_SimpleMultirotor_3D\2022_03_23_14_58_No_CNN_PPO\config\config.ini'
+    model_file = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\NH_center_SimpleMultirotor_3D\2022_03_23_14_58_No_CNN_PPO\models\model_240000.zip'
     total_eval_episodes = 50
     evaluate_thread = EvaluateThread(config_file, model_file, total_eval_episodes)
     evaluate_thread.run()
