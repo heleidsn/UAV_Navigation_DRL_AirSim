@@ -351,7 +351,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         reward_crash = -10
         reward_outside = -10
         
-        step_cost = 0.05 # 50 for max 1000 steps
+        step_cost = 0.01 # 10 for max 1000 steps
 
         if not done:
             distance_now = self.get_distance_to_goal_3d()
@@ -362,14 +362,17 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             action_cost = 0
 
             # add action cost
-            v_xy_cost = 0.05 * abs(action[0]-5) / 5  # speed 0-10  cruise speed is 5, punish for too fast and too slow
-            yaw_rate_cost = 0.05 * abs(action[-1]) / self.dynamic_model.yaw_rate_max_rad
+            v_xy_cost = 0.02 * abs(action[0]-5) / 4  # speed 0-8  cruise speed is 4, punish for too fast and too slow
+            yaw_rate_cost = 0.02 * abs(action[-1]) / self.dynamic_model.yaw_rate_max_rad
             if self.dynamic_model.navigation_3d:
-                v_z_cost = 0.05 * abs(action[1]) / self.dynamic_model.v_z_max
+                v_z_cost = 0.02 * abs(action[1]) / self.dynamic_model.v_z_max
                 action_cost += v_z_cost
             action_cost += (v_xy_cost + yaw_rate_cost)
+            
+            yaw_error = self.dynamic_model.state_raw[2]
+            yaw_error_cost = 0.05 * abs(yaw_error/180)
 
-            reward = reward_distance - reward_obs - action_cost
+            reward = reward_distance - reward_obs - action_cost - yaw_error_cost
         else:
             if self.is_in_desired_pose():
                 reward = reward_reach
