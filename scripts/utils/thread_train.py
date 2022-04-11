@@ -34,6 +34,10 @@ class TrainingThread(QtCore.QThread):
         self.cfg.read(config)
 
         self.project_name = self.cfg.get('options', 'env_name') + '_' + self.cfg.get('options', 'dynamic_name') + '_'
+        
+        if self.cfg.get('options', 'dynamic_name') == 'SimpleFixedwing':
+            if self.cfg.getfloat('fixedwing', 'pitch_flap_hz') !=0:
+                self.project_name += 'Flapping_'
 
         if self.cfg.getboolean('options', 'navigation_3d'):
             self.project_name += '3D'
@@ -43,13 +47,22 @@ class TrainingThread(QtCore.QThread):
         # make gym environment
         self.env = gym.make('airsim-env-v0')
         self.env.set_config(self.cfg)
-
+        
+        wandb_name = self.cfg.get('options', 'policy_name') + '-' + self.cfg.get('options', 'algo')
+        if self.cfg.get('options', 'dynamic_name') == 'SimpleFixedwing':
+            if self.cfg.get('options', 'perception') == "lgmd":
+                wandb_name += '-LGMD'
+            else:
+                wandb_name += '-depth'
+            if self.cfg.getfloat('fixedwing', 'pitch_flap_hz') !=0:
+                wandb_name += '-Flapping'
+            
         # wandb
         if self.cfg.getboolean('options', 'use_wandb'):
             wandb.init(
                 project=self.project_name,
-                notes="test",
-                name=self.cfg.get('options', 'policy_name') + '-' + self.cfg.get('options', 'algo') + '-M1',
+                notes="with new reward function",
+                name=wandb_name + '-M1',
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 save_code=True,  # optional
             )

@@ -18,6 +18,8 @@ from .dynamics.multirotor_simple import MultirotorDynamicsSimple
 from .dynamics.multirotor_airsim import MultirotorDynamicsAirsim
 from .dynamics.fixedwing_simple import FixedwingDynamicsSimple
 
+from .lgmd.lgmd import LGMD
+
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal
 
@@ -38,6 +40,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         print("init airsim-gym-env.")
         self.model = None
         self.data_path = None
+        self.lgmd = None
 
     def set_config(self, cfg):
         """get config from .ini file
@@ -90,6 +93,16 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_y = [-300, 100]
             self.work_space_z = [0, 100]
             self.max_episode_steps = 400
+        elif self.env_name == 'City_400':
+            # note: the start and end points will be covered by update_start_and_goal_pose_random function
+            start_position = [0, 0, 50]
+            goal_position = [280, -200, 50]
+            self.dynamic_model.set_start(start_position, random_angle=0)
+            self.dynamic_model._set_goal_pose_single(goal_position)  
+            self.work_space_x = [-220, 220]
+            self.work_space_y = [-220, 220]
+            self.work_space_z = [0, 100]
+            self.max_episode_steps = 800
         elif self.env_name == 'SimpleAvoid':
             start_position = [0, 0, 5]
             goal_distance = 50
@@ -104,15 +117,6 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             
         self.client = self.dynamic_model.client
         self.state_feature_length = self.dynamic_model.state_feature_length
-        
-        # robot state
-        # [x,y,z] [vx,vy,vz] [Phi,Theta,Psi] [p,q,r](body frame)
-        self.robot_state = {
-            'position': np.zeros(3),
-            'linear_velocity': np.zeros(3),
-            'attitude': np.zeros(3),
-            'angular_velocity': np.zeros(3)
-        }
 
         # training state
         self.episode_num = 0
@@ -122,10 +126,14 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.previous_distance_from_des_point = 0
 
         # other settings
-        self.crash_distance = cfg.getint('environment', 'crash_distance')
-        self.accept_radius = cfg.getint('environment', 'accept_radius')
+        if self.dynamic_name == 'SimpleFixedwing':
+            self.crash_distance = cfg.getint('fixedwing', 'crash_distance')
+            self.accept_radius = cfg.getint('fixedwing', 'accept_radius')
+        else:
+            self.crash_distance = cfg.getint('multirotor', 'crash_distance')
+            self.accept_radius = cfg.getint('multirotor', 'accept_radius')
+        
         self.max_depth_meters = cfg.getint('environment', 'max_depth_meters')
-
         self.screen_height = cfg.getint('environment', 'screen_height')
         self.screen_width = cfg.getint('environment', 'screen_width')
 
@@ -143,6 +151,11 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             print('Reward type: ', self.reward_type)
         except NoOptionError:
             self.reward_type = None
+        
+        if cfg.has_option('options', 'perception'):
+            if cfg.get('options', 'perception') == 'lgmd':
+                print('Using LGMD perception')
+                self.lgmd = LGMD('norm')
 
 
     def reset(self):
@@ -165,7 +178,10 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
     def step(self, action):
         
         # set action
-        self.dynamic_model.set_action(action)
+        if self.dynamic_name == 'SimpleFixedwing':
+            self.dynamic_model.set_action(action, self.step_num)  # add step to calculate pitch flap deg Fixed wing only 
+        else:
+            self.dynamic_model.set_action(action)
         
         position_ue4 = self.dynamic_model.get_position()
         self.trajectory_list.append(position_ue4)
@@ -240,13 +256,35 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         @param {type}
         @return:
         '''
-        # 1. get current depth image and transfer to 0-255  0-20m 255-0m
-        image = self.get_depth_image()
-        image_resize = cv2.resize(image, (self.screen_width, self.screen_height))
-        image_scaled = image_resize * 100
-        self.min_distance_to_obstacles = image_scaled.min()
-        image_scaled = -np.clip(image_scaled, 0, self.max_depth_meters) / self.max_depth_meters * 255 + 255  
-        image_uint8 = image_scaled.astype(np.uint8)
+        
+        if self.lgmd is not None:
+            depth_meter, img_gray = self.get_obs_lgmd()
+            self.min_distance_to_obstacles = depth_meter.min()
+            
+            self.lgmd.update(img_gray)
+            s_layer_abs = abs(self.lgmd.s_layer)
+     
+            # # norm to 0-255
+            if (s_layer_abs.max() - s_layer_abs.min()) != 0:
+                s_layer_norm = (s_layer_abs - s_layer_abs.min()) / (s_layer_abs.max() - s_layer_abs.min()) * 255
+            else:
+                s_layer_norm = s_layer_abs
+                
+            s_layer_norm_uint8 = s_layer_norm.astype(np.uint8)
+            cv2.imshow('s_layer_norm', s_layer_norm_uint8)
+            cv2.waitKey(1)
+            
+            image_resize = cv2.resize(s_layer_norm_uint8, (self.screen_width, self.screen_height))
+            image_uint8 = image_resize.astype(np.uint8)
+            
+        else:
+            # 1. get current depth image and transfer to 0-255  0-20m 255-0m
+            image = self.get_depth_image()
+            image_resize = cv2.resize(image, (self.screen_width, self.screen_height))
+            image_scaled = image_resize * 100
+            self.min_distance_to_obstacles = image_scaled.min()
+            image_scaled = -np.clip(image_scaled, 0, self.max_depth_meters) / self.max_depth_meters * 255 + 255  
+            image_uint8 = image_scaled.astype(np.uint8)
 
         assert image_uint8.shape[0] == self.screen_height and image_uint8.shape[1] == self.screen_width, 'image size not match'
         
@@ -264,7 +302,34 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         image_with_state = image_with_state.swapaxes(0, 1)
         
         return image_with_state
-
+    
+    
+    def get_obs_lgmd(self):
+        # get depth and rgb image
+        responses = self.client.simGetImages([
+            airsim.ImageRequest("0", airsim.ImageType.DepthVis, True),
+            airsim.ImageRequest("0", airsim.ImageType.Scene, False, False),           #scene vision image in png format
+            ])
+        
+        # check observation
+        while responses[0].width == 0:
+            print("get_image_fail...")
+            responses = self.client.simGetImages([
+                airsim.ImageRequest("0", airsim.ImageType.DepthVis, True),
+                airsim.ImageRequest("0", airsim.ImageType.Scene, False, False),           #scene vision image uncompressed 
+            ])
+        
+        # get depth image    
+        depth_img = airsim.list_to_2d_float_array(responses[0].image_data_float, responses[0].width, responses[0].height)
+        depth_meter = depth_img * 100
+        
+        # get gary image
+        img_1d = np.fromstring(responses[1].image_data_uint8, dtype=np.uint8)
+        img_rgb = img_1d.reshape(responses[1].height, responses[1].width, 3) # reshape array to 4 channel image array H X W X 3
+        img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
+        
+        return depth_meter, img_gray
+        
     def get_depth_image(self):
 
         responses = self.client.simGetImages([
@@ -280,12 +345,15 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         depth_img = airsim.list_to_2d_float_array(responses[0].image_data_float, responses[0].width, responses[0].height)
 
         return depth_img
+    
+    def get_lgmd_out(self):
+        pass
 
 #! ---------------------calculate rewards-------------------------------------
     def compute_reward(self, done, action):
         reward = 0
         reward_reach = 10
-        reward_crash = -10
+        reward_crash = -20
         reward_outside = -10
 
         if not done:
@@ -304,8 +372,11 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                 action_cost += v_z_cost
             
             action_cost += yaw_speed_cost
+            
+            yaw_error = self.dynamic_model.state_raw[2]
+            yaw_error_cost = 0.05 * abs(yaw_error/180)
 
-            reward = reward_distance - reward_obs - action_cost
+            reward = reward_distance - reward_obs - action_cost - yaw_error_cost
         else:
             if self.is_in_desired_pose():
                 reward = reward_reach
@@ -324,15 +395,14 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         if not done:
             distance_now = self.get_distance_to_goal_3d()
-            reward_distance = (self.previous_distance_from_des_point - distance_now)
+            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 100
             self.previous_distance_from_des_point = distance_now
 
             state_cost = 0
             action_cost = 0
 
-            state_cost += 0.2 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max
-
-            action_cost += 0.2 * abs(action[0]) /self.dynamic_model.roll_rate_max
+            # state_cost += 0.2 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max
+            # action_cost += 0.2 * abs(action[0]) /self.dynamic_model.roll_rate_max
 
             reward = reward_distance - state_cost - action_cost
         else:
@@ -348,14 +418,14 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
     def compute_reward_with_action(self, done, action):
         reward = 0
         reward_reach = 50
-        reward_crash = -10
+        reward_crash = -50
         reward_outside = -10
         
         step_cost = 0.01 # 10 for max 1000 steps
 
         if not done:
             distance_now = self.get_distance_to_goal_3d()
-            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 100  # normalized to 100 according to goal_distance
+            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 10  # normalized to 100 according to goal_distance
             self.previous_distance_from_des_point = distance_now
 
             reward_obs = 0
@@ -459,19 +529,23 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         """
         emit signals for pyqt plot
         """
-        action_plot = np.array([math.degrees(action[0]), 0, 0, 0])
-        euler_angle = self.dynamic_model.get_attitude() # pitch, roll yaw
-        state_plot = np.array([math.degrees(euler_angle[0]), math.degrees(euler_angle[1]), math.degrees(euler_angle[2]), self.dynamic_model.v_xy])
-
-        self.action_signal.emit(int(self.total_step), action_plot, state_plot)
-        # self.robot_state_signal.emit(int(self.total_step), self.robot_state)
-        self.state_signal.emit(int(self.total_step), self.dynamic_model.state_raw)
-        self.state_norm_signal.emit(int(self.total_step), self.dynamic_model.state_norm)
-        self.reward_signal.emit(int(self.total_step), reward, self.cumulated_episode_reward)
-
-        # emit signals for shap explain
-        self.training_info_signal.emit(self.episode_num, self.step_num, self.total_step, reward, self.cumulated_episode_reward, done) # episode, timestep, total timestep, reward, accumulate reward, done
-        self.state_raw_norm_signal.emit(self.dynamic_model.state_raw, self.dynamic_model.state_norm)
+        step = int(self.total_step)
+        # action: v_xy, v_z, roll
+        
+        action_plot = np.array([10, 0, math.degrees(action[0])])
+        
+        state = self.dynamic_model.state_raw  # distance, relative yaw, roll
+        
+        # state out 6: d_xy, d_z, yaw_error, v_xy, v_z, roll
+        # state in  3: d_xy, yaw_error, roll
+        state_output = np.array([state[0], 0, state[1], 10, 0, state[2]])
+        
+        self.action_signal.emit(step, action_plot)
+        self.state_signal.emit(step, state_output)
+        
+        # other values
+        self.attitude_signal.emit(step, np.asarray(self.dynamic_model.get_attitude()), np.asarray(self.dynamic_model.get_attitude_cmd()))
+        self.reward_signal.emit(step, reward, self.cumulated_episode_reward)
         self.pose_signal.emit(np.asarray(self.dynamic_model.goal_position), np.asarray(self.dynamic_model.start_position), np.asarray(self.dynamic_model.get_position()), np.asarray(self.trajectory_list))
 
     def set_pyqt_signal_multirotor(self, action, reward):

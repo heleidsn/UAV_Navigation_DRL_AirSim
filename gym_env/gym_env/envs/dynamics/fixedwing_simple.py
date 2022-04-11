@@ -10,11 +10,13 @@ class FixedwingDynamicsSimple():
     '''
     A simple dynamics used for vision based fixed wing navigation
     It has position (x, y, z, yaw) in local frame and v_xy v_z yaw_rate as states
+    控制量：roll
     '''
 
-    def __init__(self) -> None:
+    def __init__(self, cfg) -> None:
         # config
-        self.dt = 0.1
+        self.navigation_3d = cfg.getboolean('options', 'navigation_3d')
+        self.dt = cfg.getfloat('fixedwing', 'dt')
 
         # AirSim Client
         self.client = airsim.VehicleClient()
@@ -35,20 +37,33 @@ class FixedwingDynamicsSimple():
         self.roll_rate = 0
         self.yaw_rate = 0
 
-        self.roll_max = math.radians(40)
-
         # control command
-        self.roll_rate_max = math.radians(40)
+        self.roll_max_deg = cfg.getfloat('fixedwing', 'roll_max_deg')
+        self.roll_max = math.radians(self.roll_max_deg)
+        
+        # 动力学约束
+        self.roll_rate_max_deg = cfg.getfloat('fixedwing', 'roll_rate_max_deg')
+        self.roll_rate_max = math.radians(self.roll_rate_max_deg)
+        
+        # flapping config
+        self.pitch_flap_hz = cfg.getfloat('fixedwing', 'pitch_flap_hz')
+        self.pitch_flap_deg = cfg.getfloat('fixedwing', 'pitch_flap_deg')
 
         # action space
-        self.action_space = spaces.Box(low=np.array([-self.roll_rate_max]), \
-                                       high=np.array([self.roll_rate_max]), dtype=np.float32)
+        self.action_space = spaces.Box(low=np.array([-self.roll_max]), \
+                                       high=np.array([self.roll_max]), dtype=np.float32)
 
         
         self.state_feature_length = 3
         self.goal_distance = 0
+        
+        self.env_name = cfg.get('options', 'env_name')
 
     def reset(self):
+        
+        if self.env_name == 'City_400':
+            self.update_start_and_goal_pose_random()
+        
         self.x = self.start_position[0]
         self.y = self.start_position[1]
         self.z = self.start_position[2]
@@ -56,7 +71,7 @@ class FixedwingDynamicsSimple():
         self.v_z = 0
         self.pitch = 0
         self.roll = 0
-        self.yaw = 0
+        # self.yaw = 0
         self.pitch_rate = 0
         self.roll_rate = 0
         self.yaw_rate = 0
@@ -69,22 +84,65 @@ class FixedwingDynamicsSimple():
         pose.orientation = airsim.to_quaternion(0, 0, self.yaw)
 
         self.client.simSetVehiclePose(pose, False)
+        
+    def update_start_and_goal_pose_random(self):
+        
+        rect = [-200, -200, 200, 200]    
+        noise = np.random.random() * 2 - 1  # (-1,1)
+        angle = noise * math.pi  # -pi~pi
 
-    def set_action(self, action, robot_state):
+        if abs(angle) == math.pi/2:
+            goal_x = 0
+            if angle > 0:
+                goal_y = rect[3]
+            else:
+                goal_y = rect[1]
+        if abs(angle) <= math.pi/4:
+            goal_x = rect[2]
+            goal_y = goal_x*math.tan(angle)
+        elif abs(angle) > math.pi/4 and abs(angle) <= math.pi/4*3:
+            if angle > 0:
+                goal_y = rect[3]
+                goal_x = goal_y/math.tan(angle)
+            else:
+                goal_y = rect[1]
+                goal_x = goal_y/math.tan(angle)
+        else:
+            goal_x = rect[0]
+            goal_y = goal_x * math.tan(angle)
+        
+        
+        self.start_position[0] = -goal_x
+        self.start_position[1] = -goal_y
+        self.goal_position[0] = goal_x
+        self.goal_position[1] = goal_y
+        self.goal_position[2] = self.start_position[2]
+        
+        self.goal_distance = math.sqrt(goal_x*goal_x + goal_y*goal_y) * 2
+        self.yaw = angle
+        
+        print('yaw: ', math.degrees(self.yaw))
+        print('start: ', self.start_position)
+        print('goal: ', self.goal_position)
+
+    def set_action(self, action, step):
         """
         更新动力学
         前向速度保持不变
         通过滚转来实现偏航运动
         """
 
-        self.roll_rate = action[0]
+        self.roll_cmd = action[0]
+        
+        # roll rate limitation
+        if (self.roll_cmd - self.roll) > self.roll_rate_max * self.dt:
+            self.roll += self.roll_rate_max*self.dt
+        elif (self.roll_cmd - self.roll) < -self.roll_rate_max * self.dt:
+            self.roll -= self.roll_rate_max*self.dt
+        else:
+            self.roll = self.roll_cmd
 
         self.roll = self.roll + self.roll_rate * self.dt
-
-        if self.roll > self.roll_rate_max:
-            self.roll = self.roll_rate_max
-        elif self.roll < -self.roll_rate_max:
-            self.roll = -self.roll_rate_max
         
         # 滚转提供法向加速度，根据法向加速度a_n和飞行速度v_xy可以得到偏航角速度yaw_rate
         a_n = math.tan(self.roll) * 9.8
@@ -98,31 +156,20 @@ class FixedwingDynamicsSimple():
         
         self.x += self.v_xy * math.cos(self.yaw) * self.dt
         self.y += self.v_xy * math.sin(self.yaw) * self.dt
+        
+        # get pitch angle according to pitch_flap config
+        time = step * self.dt
+        self.pitch = self.pitch_flap_deg * math.sin(2 * math.pi * time * self.pitch_flap_hz)
+        self.pitch = math.radians(self.pitch)
 
         # set airsim pose
         pose = self.client.simGetVehiclePose()
         pose.position.x_val = self.x
         pose.position.y_val = self.y
         pose.position.z_val = - self.z
-        pose.orientation = airsim.to_quaternion(0, self.roll, self.yaw)
+        pose.orientation = airsim.to_quaternion(self.pitch, self.roll, self.yaw)
         self.client.simSetVehiclePose(pose, False)
-
-        robot_state[0] = self.x
-        robot_state[1] = self.y
-        robot_state[2] = self.z
-        
-        robot_state[3] = self.v_xy * math.cos(self.yaw)
-        robot_state[4] = self.v_xy * math.sin(self.yaw)
-        robot_state[5] = 0
-
-        robot_state[6] = self.pitch
-        robot_state[7] = self.roll
-        robot_state[8] = self.yaw
-
-        robot_state[9] = self.pitch_rate
-        robot_state[10] = self.roll_rate
-        robot_state[11] = self.yaw_rate
-        
+   
         return 0
 
     def _get_state_feature(self):
@@ -132,14 +179,14 @@ class FixedwingDynamicsSimple():
         @return: state_norm
                     normalized state range 0-255
         '''
-        distance = self._get_2d_distance_to_goal()
+        distance = self.get_distance_to_goal_2d()
         relative_yaw = self._get_relative_yaw()  # return relative yaw -pi to pi 
 
         distance_norm = distance / self.goal_distance * 255
         relative_yaw_norm = (relative_yaw / math.pi / 2 + 0.5 ) * 255
         roll_norm = (self.roll / self.roll_max / 2 + 0.5) * 255
 
-        self.state_raw = np.array([distance, math.degrees(relative_yaw), self.roll])
+        self.state_raw = np.array([distance, math.degrees(relative_yaw), math.degrees(self.roll)])
         self.state_norm = np.array([distance_norm, relative_yaw_norm, roll_norm])
     
         return self.state_norm
@@ -149,6 +196,9 @@ class FixedwingDynamicsSimple():
 
     def get_attitude(self):
         return [self.pitch, self.roll, self.yaw]
+    
+    def get_attitude_cmd(self):
+        return [0.0, 0.0, 0.0]
 
     def set_start(self, position, random_angle):
         self.start_position = position
@@ -156,9 +206,6 @@ class FixedwingDynamicsSimple():
     
     def _set_goal_pose_single(self, goal):
         self.goal_position = [goal[0], goal[1], goal[2]]
-
-    def _get_2d_distance_to_goal(self):
-        return math.sqrt(pow(self.get_position()[0] - self.goal_position[0], 2) + pow(self.get_position()[1] - self.goal_position[1], 2))
 
     def _get_relative_yaw(self):
         '''
@@ -183,4 +230,7 @@ class FixedwingDynamicsSimple():
             yaw_error += 2*math.pi
 
         return yaw_error
+    
+    def get_distance_to_goal_2d(self):     
+        return math.sqrt(pow(self.get_position()[0] - self.goal_position[0], 2) + pow(self.get_position()[1] - self.goal_position[1], 2))
 

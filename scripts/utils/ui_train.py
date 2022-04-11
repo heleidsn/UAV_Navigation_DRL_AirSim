@@ -1,7 +1,7 @@
 '''
 @Author: Lei He
 @Date: 2020-06-01 22:52:40
-LastEditTime: 2022-03-24 10:26:04
+LastEditTime: 2022-04-11 10:59:03
 @Description: 
 @Github: https://github.com/heleidsn
 '''
@@ -142,53 +142,39 @@ class TrainingUi(QWidget):
         action: roll_cmd, pitch_cmd, yaw_cmd, airspeed_cmd
         """
         actionPlotGroupBox = QGroupBox('Real time action and state')
+        
+        self.v_xy_cmd_list = np.linspace(0, 0, self.max_len)
+        self.v_xy_real_list = np.linspace(0, 0, self.max_len)
 
-        self.roll_list = np.linspace(0, 0, self.max_len)
+        self.v_z_cmd_list = np.linspace(0, 0, self.max_len)
+        self.v_z_real_list = np.linspace(0, 0, self.max_len)
+
+        self.roll_list_a = np.linspace(0, 0, self.max_len)
         self.roll_cmd_list = np.linspace(0, 0, self.max_len)
 
-        self.pitch_list = np.linspace(0, 0, self.max_len)
-        self.pitch_cmd_list = np.linspace(0, 0, self.max_len)
-
-        self.yaw_list = np.linspace(0, 0, self.max_len)
-        self.yaw_cmd_list = np.linspace(0, 0, self.max_len)
-
-        self.airspeed_list = np.linspace(0, 0, self.max_len)
-        self.airspeed_cmd_list = np.linspace(0, 0, self.max_len)
-
         layout = QVBoxLayout()
+        
+        self.plotWidget_v_xy = pg.PlotWidget(title='v_xy (m/s)')
+        self.plotWidget_v_xy.setYRange(max=self.cfg.getfloat('fixedwing', 'v_xy_max'), min=self.cfg.getfloat('fixedwing', 'v_xy_min'))
+        self.plotWidget_v_xy.showGrid(x=True,y=True)
+        self.plot_v_xy = self.plotWidget_v_xy.plot()      # get plot object
+        self.plot_v_xy_cmd = self.plotWidget_v_xy.plot()
+
+        self.plotWidget_v_z = pg.PlotWidget(title='v_z (m/s)')
+        self.plotWidget_v_z.setYRange(max=self.cfg.getfloat('fixedwing', 'v_z_max'), min=-self.cfg.getfloat('fixedwing', 'v_z_max'))
+        self.plotWidget_v_z.showGrid(x=True,y=True)
+        self.plot_v_z = self.plotWidget_v_z.plot()
+        self.plot_v_z_cmd = self.plotWidget_v_z.plot()
 
         self.plotWidget_roll = pg.PlotWidget(title='roll (deg)')
         self.plotWidget_roll.setYRange(max=45, min=-45)
         self.plotWidget_roll.showGrid(x=True,y=True)
-        self.plot_roll = self.plotWidget_roll.plot()
-        self.plot_roll_cmd = self.plotWidget_roll.plot()
-        # self.plot_vel_x_final = self.plotWidget_roll.plot()
+        self.plot_roll_a = self.plotWidget_roll.plot()
+        self.plot_roll_cmd_a = self.plotWidget_roll.plot()
 
-        self.plotWidget_pitch = pg.PlotWidget(title='pitch (deg)')
-        self.plotWidget_pitch.setYRange(max=25, min=-25)
-        self.plotWidget_pitch.showGrid(x=True,y=True)
-        self.plot_pitch = self.plotWidget_pitch.plot()
-        self.plot_pitch_cmd = self.plotWidget_pitch.plot()
-        # self.plot_vel_z_final = self.plotWidget_pitch.plot()
-
-        self.plotWidget_yaw = pg.PlotWidget(title='yaw (deg)')
-        # self.plotWidget_yaw.setYRange(max=180, min=-180)
-        self.plotWidget_yaw.showGrid(x=True,y=True)
-        self.plot_yaw = self.plotWidget_yaw.plot()
-        self.plot_yaw_cmd = self.plotWidget_yaw.plot()
-        # self.plot_vel_yaw_final = self.plotWidget_yaw.plot()
-
-        self.plotWidget_airspeed = pg.PlotWidget(title='airspeed (m/s)')
-        self.plotWidget_airspeed.setYRange(max=20, min=10)
-        self.plotWidget_airspeed.showGrid(x=True,y=True)
-        self.plot_airspeed = self.plotWidget_airspeed.plot()
-        self.plot_airspeed_cmd = self.plotWidget_airspeed.plot()
-        # self.plot_vel_yaw_final = self.plotWidget_airspeed.plot()
-
+        layout.addWidget(self.plotWidget_v_xy)
+        layout.addWidget(self.plotWidget_v_z)
         layout.addWidget(self.plotWidget_roll)
-        layout.addWidget(self.plotWidget_pitch)
-        layout.addWidget(self.plotWidget_yaw)
-        layout.addWidget(self.plotWidget_airspeed)
 
         actionPlotGroupBox.setLayout(layout)
 
@@ -196,7 +182,7 @@ class TrainingUi(QWidget):
 
     def action_cb(self, step, action):
         if self.dynamics == 'SimpleFixedwing':
-            self.action_cb_multirotor(step, action)
+            self.action_cb_fixed_wing(step, action)
         else:
             self.action_cb_multirotor(step, action)
 
@@ -209,33 +195,18 @@ class TrainingUi(QWidget):
         self.plot_v_z_cmd.setData(self.v_z_cmd_list, pen=self.pen_blue)
         self.plot_yaw_rate_cmd.setData(self.yaw_rate_cmd_list, pen=self.pen_blue)
 
-    def action_cb_fixed_wing(self, step, action, state):
+    def action_cb_fixed_wing(self, step, action):
         """
         call back function used for fixed wing plot
         """
+        self.update_value_list(self.v_xy_cmd_list, action[0])
+        self.update_value_list(self.v_z_cmd_list, action[1])
+        self.update_value_list(self.roll_cmd_list, action[2])
 
         # plot action
-        self.update_value_list(self.roll_cmd_list, action[0])
-        self.update_value_list(self.pitch_cmd_list, action[1])
-        self.update_value_list(self.yaw_cmd_list, action[2])
-        self.update_value_list(self.airspeed_cmd_list, action[3])
-
-        self.plot_roll_cmd.setData(self.roll_cmd_list, pen=self.pen_red)
-        self.plot_pitch_cmd.setData(self.pitch_cmd_list, pen=self.pen_red)
-        self.plot_yaw_cmd.setData(self.yaw_cmd_list, pen=self.pen_red)
-        self.plot_airspeed_cmd.setData(self.airspeed_cmd_list, pen=self.pen_red)
-        
-
-        # plot state
-        self.update_value_list(self.roll_list, state[0])
-        self.update_value_list(self.pitch_list, state[1])
-        self.update_value_list(self.yaw_list, state[2])
-        self.update_value_list(self.airspeed_list, state[3])
-
-        self.plot_roll.setData(self.roll_list, pen=self.pen_blue)
-        self.plot_pitch.setData(self.pitch_list, pen=self.pen_blue)
-        self.plot_yaw.setData(self.yaw_list, pen=self.pen_blue)
-        self.plot_airspeed.setData(self.airspeed_list, pen=self.pen_blue)
+        self.plot_v_xy_cmd.setData(self.v_xy_cmd_list, pen=self.pen_blue)
+        self.plot_v_z_cmd.setData(self.v_z_cmd_list, pen=self.pen_blue) 
+        self.plot_roll_cmd_a.setData(self.roll_cmd_list, pen=self.pen_blue)
 
 # state feature plot groupbox
     def create_state_plot_groupbox(self):
@@ -280,11 +251,15 @@ class TrainingUi(QWidget):
         # update action real
         self.update_value_list(self.v_xy_real_list, state_raw[3])
         self.update_value_list(self.v_z_real_list, state_raw[4])
-        self.update_value_list(self.yaw_rate_list, state_raw[5])
-
         self.plot_v_xy.setData(self.v_xy_real_list, pen=self.pen_red)
         self.plot_v_z.setData(self.v_z_real_list, pen=self.pen_red)
-        self.plot_yaw_rate.setData(self.yaw_rate_list, pen=self.pen_red)
+        
+        if self.dynamics == 'SimpleFixedwing':
+            self.update_value_list(self.roll_list_a, state_raw[5])
+            self.plot_roll_a.setData(self.roll_list_a, pen=self.pen_red)
+        else:
+            self.update_value_list(self.yaw_rate_list, state_raw[5])
+            self.plot_yaw_rate.setData(self.yaw_rate_list, pen=self.pen_red)
 
 # attitude plot groupbox
     def create_attitude_plot_groupbox(self):
@@ -403,6 +378,19 @@ class TrainingUi(QWidget):
             self.background_img.setRect(pg.QtCore.QRectF(-135, -135, 270, 270))
             self.traj_pw.setXRange(max=135, min=-135)
             self.traj_pw.setYRange(max=135, min=-135)
+        elif self.cfg.get('options', 'env_name') == 'City_400':
+            background_image_path = 'resources/env_maps/city_400.png'
+            img_data = Image.open(background_image_path)
+            image=np.copy(img_data)
+            self.background_img = pg.ImageItem(image)
+            self.traj_pw.addItem(self.background_img)
+            self.background_img.setZValue(-100)  # make sure image is behind other data
+            self.background_img.setRect(pg.QtCore.QRectF(-220, -220, 440, 440))
+            self.traj_pw.setXRange(max=220, min=-220)
+            self.traj_pw.setYRange(max=220, min=-220)
+        elif self.cfg.get('options', 'env_name') == 'City':
+            self.traj_pw.setXRange(max=300, min=0)
+            self.traj_pw.setYRange(max=0, min=-300)
         layout.addWidget(self.traj_pw)
 
         traj_plot_groupbox.setLayout(layout)
@@ -416,7 +404,7 @@ class TrainingUi(QWidget):
         self.traj_pw.clear()
 
         # set background image
-        if self.cfg.get('options', 'env_name') == 'SimpleAvoid' or self.cfg.get('options', 'env_name') == 'NH_center':
+        if self.cfg.get('options', 'env_name') == 'SimpleAvoid' or self.cfg.get('options', 'env_name') == 'NH_center' or self.cfg.get('options', 'env_name') == 'City_400':
             self.traj_pw.addItem(self.background_img)         
         
         # plot start, goal and trajectory

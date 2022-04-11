@@ -153,7 +153,7 @@ class MultirotorDynamicsAirsim():
     def get_goal_from_rect(self, rect_set, random_angle_set):
         rect = rect_set
         random_angle=random_angle_set
-        noise = np.random.random()  # (-0.5~0.5)
+        noise = np.random.random()  # [0,1])
         angle = random_angle * noise - math.pi   # -pi~pi
         rect = [-128, -128, 128, 128]
         # goal_x = 100*math.sin(angle)
