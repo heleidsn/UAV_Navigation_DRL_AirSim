@@ -79,7 +79,7 @@ Now we provide 3 training envrionment and 3 dynamics.
   </p>
 * City_400_400
 
-  * A custom UE4 environment used for fixedwing obstacle avoidance test.
+  * A custom UE4 environment used for fixedwing obstacle avoidance test. You can also get it from [google drive](https://drive.google.com/file/d/1vdT8cP2n_jTk1MdShGwdf1OFPC_YOmTr/view?usp=sharing)
 
   <p align="center">
     <img src="resources/env_maps/city_400.png" width = "350" height = "200"/>
