@@ -70,12 +70,36 @@ Now we provide 3 training envrionment and 3 dynamics.
 **env_name**
 
 * SimpleAvoid
+
   * This is a custom UE4 environment used for simple obstacle avoidance test. You can download it from [google drive](https://drive.google.com/file/d/1QgkZY5-GXRr93QTV-s2d2OCoVSndADAM/view?usp=sharing).
-  * <img src="resources\env_maps\simple_world_light.png" alt="drawing" width="400"/>
-* NH
-  * <img src="resources\env_maps\NH.png" alt="drawing" width="400"/>
-* City (for fixedwing)
-  * <img src="resources\env_maps\city.png" alt="drawing" width="400"/>
+
+  <p align="center">
+    <img src="resources/env_maps/simple_world_1.png" width = "400" height = "225"/>
+    <img src="resources/env_maps/simple_world_45.png" width = "400" height = "225"/>
+  </p>
+* City_400_400
+
+  * A custom UE4 environment used for fixedwing obstacle avoidance test.
+
+  <p align="center">
+    <img src="resources/env_maps/city_400.png" width = "400" height = "225"/>
+    <img src="resources/env_maps/city_400_1.png" width = "400" height = "225"/>
+  </p>
+
+* Random obstacles
+  * Some envs with random obstacles. Contributed by [Chris-cch](https://github.com/Chris-cch). You can download [here](https://mailnwpueducn-my.sharepoint.com/personal/chenchanghao_mail_nwpu_edu_cn/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fchenchanghao%5Fmail%5Fnwpu%5Fedu%5Fcn%2FDocuments%2Fnew%5Fenv&ga=1).
+
+  <p align="center">
+    <img src="resources/env_maps/random_1.png" width = "400" height = "225"/>
+    <img src="resources/env_maps/random_2.png" width = "400" height = "225"/>
+  </p>
+
+* Other Airsim build in envrionment (AirSimNH and CityEnviron):
+
+  <p align="center">
+    <img src="resources\env_maps\NH.png" width = "400" height = "225"/>
+    <img src="resources\env_maps\city.png" width = "400" height = "225"/>
+  </p>
 
 **dynamic_name**
 
@@ -95,18 +119,35 @@ Now we provide 3 training envrionment and 3 dynamics.
 
 ## Results
 
-- Training result using TD3 with no_cnn policy
-  - ![img](resources/figures/training_result_simple_no_cnn.png)
+Training result using TD3 with no_cnn policy![img](resources/figures/training_result_simple_no_cnn.png)
+
+## Benchmark
+
+2D depth navigation Benchmark for 3 different algorithms and 5 different policies in SimpleAvoid environment:
+
+<img src="resources\results\policy-PPO.jpg" alt="drawing" width="800"/>
+
+<img src="resources\results\policy-SAC.jpg" alt="drawing" width="800"/>
+
+<img src="resources\results\policy-TD3.jpg" alt="drawing" width="800"/>
 
 ## Settings
 
-For
+Note: 
+
+To speed up image collection, you can set `ViewMode `to `NoDisplay`.
+
+For multirotor with [simple_flight](https://microsoft.github.io/AirSim/simple_flight/) controller, please set `SimMode `to `Multirotor`. You can also set `ClockSpeed `over than 1 to speed up simulation (Only useful in `Multirotor `mode).
+
+Also, it's better to put your environment files in your SSD rather than HDD.
 
 ```json
 {
   "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
   "SettingsVersion": 1.2,
   "SimMode": "ComputerVision",
+  "ViewMode": "NoDisplay",
+  "ClockSpeed": 1,
   "SubWindows": [
     {"WindowID": 0, "CameraID": 0, "ImageType": 0, "Visible": true},
     {"WindowID": 1, "CameraID": 0, "ImageType": 3, "Visible": false},
