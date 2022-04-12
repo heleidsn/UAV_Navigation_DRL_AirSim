@@ -66,13 +66,14 @@ class LGMD():
         m00 = signal.convolve2d(img, w00, boundary='symm', mode='same')
 
         m_total = m01+m10
-        m_norm = m_total/m00
+        
+        with np.errstate(divide='ignore'):
+            m_norm = m_total/m00
         
         # deal with nan
         m_norm[np.isnan(m_norm)]=0
         
         # norm to 0-255
-        
         
         return m_norm
     

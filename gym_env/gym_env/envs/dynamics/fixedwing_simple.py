@@ -62,7 +62,9 @@ class FixedwingDynamicsSimple():
     def reset(self):
         
         if self.env_name == 'City_400':
-            self.update_start_and_goal_pose_random()
+            self.update_start_goal_rect(size=200)
+        if self.env_name == 'Tree_200':
+            self.update_start_goal_rect(size=80)
         
         self.x = self.start_position[0]
         self.y = self.start_position[1]
@@ -85,9 +87,9 @@ class FixedwingDynamicsSimple():
 
         self.client.simSetVehiclePose(pose, False)
         
-    def update_start_and_goal_pose_random(self):
+    def update_start_goal_rect(self, size):
         
-        rect = [-200, -200, 200, 200]    
+        rect = [-size, -size, size, size]    
         noise = np.random.random() * 2 - 1  # (-1,1)
         angle = noise * math.pi  # -pi~pi
 

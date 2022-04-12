@@ -103,6 +103,16 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_y = [-220, 220]
             self.work_space_z = [0, 100]
             self.max_episode_steps = 800
+        elif self.env_name == 'Tree_200':
+            # note: the start and end points will be covered by update_start_and_goal_pose_random function
+            start_position = [0, 0, 8]
+            goal_position = [280, -200, 50]
+            self.dynamic_model.set_start(start_position, random_angle=0)
+            self.dynamic_model._set_goal_pose_single(goal_position)  
+            self.work_space_x = [-100, 100]
+            self.work_space_y = [-100, 100]
+            self.work_space_z = [0, 100]
+            self.max_episode_steps = 600
         elif self.env_name == 'SimpleAvoid':
             start_position = [0, 0, 5]
             goal_distance = 50
@@ -263,14 +273,16 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             
             self.lgmd.update(img_gray)
             s_layer_abs = abs(self.lgmd.s_layer)
+            
+            s_layer_clip = np.clip(s_layer_abs, 0, 30) / 30 * 255
      
             # # norm to 0-255
-            if (s_layer_abs.max() - s_layer_abs.min()) != 0:
-                s_layer_norm = (s_layer_abs - s_layer_abs.min()) / (s_layer_abs.max() - s_layer_abs.min()) * 255
-            else:
-                s_layer_norm = s_layer_abs
+            # if (s_layer_abs.max() - s_layer_abs.min()) != 0:
+            #     s_layer_norm = (s_layer_abs - s_layer_abs.min()) / (s_layer_abs.max() - s_layer_abs.min()) * 255
+            # else:
+            #     s_layer_norm = s_layer_abs
                 
-            s_layer_norm_uint8 = s_layer_norm.astype(np.uint8)
+            s_layer_norm_uint8 = s_layer_clip.astype(np.uint8)
             cv2.imshow('s_layer_norm', s_layer_norm_uint8)
             cv2.waitKey(1)
             
