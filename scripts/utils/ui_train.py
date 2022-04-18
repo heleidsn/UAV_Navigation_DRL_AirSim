@@ -1,7 +1,7 @@
 '''
 @Author: Lei He
 @Date: 2020-06-01 22:52:40
-LastEditTime: 2022-04-11 10:59:03
+LastEditTime: 2022-04-18 16:08:08
 @Description: 
 @Github: https://github.com/heleidsn
 '''
@@ -60,11 +60,17 @@ class TrainingUi(QWidget):
         state_plot_gb = self.create_state_plot_groupbox()
         attitude_plot_gb = self.create_attitude_plot_groupbox()
         reward_plot_gb = self.create_reward_plot_groupbox()
+        lgmd_plot_gb = self.create_lgmd_plot_groupbox()
         traj_plot_gb = self.create_traj_plot_groupbox()
 
         right_widget = QWidget()
         vlayout = QVBoxLayout()
         vlayout.addWidget(reward_plot_gb)
+        
+        if self.cfg.has_option('options', 'perception'):
+            if self.cfg.get('options', 'perception') == 'lgmd':
+                vlayout.addWidget(lgmd_plot_gb)
+        
         vlayout.addWidget(traj_plot_gb)
         right_widget.setLayout(vlayout)
 
@@ -315,7 +321,7 @@ class TrainingUi(QWidget):
     def create_reward_plot_groupbox(self):
         reward_plot_groupbox = QGroupBox(title='Reward')
         layout = QHBoxLayout()
-        reward_plot_groupbox.setFixedHeight(300)
+        # reward_plot_groupbox.setFixedHeight(300)
         reward_plot_groupbox.setFixedWidth(600)
 
         self.reward_list = np.linspace(0, 0, self.max_len)
@@ -342,6 +348,37 @@ class TrainingUi(QWidget):
         self.rw_p_1.setData(self.reward_list, pen=self.pen_red)
         self.rw_p_2.setData(self.total_reward_list, pen=self.pen_red)
 
+# lgmd plot groupbox
+    def create_lgmd_plot_groupbox(self):
+        lgmd_plot_groupbox = QGroupBox(title='Lgmd info')
+        layout = QHBoxLayout()
+        # lgmd_plot_groupbox.setFixedHeight(300)
+        lgmd_plot_groupbox.setFixedWidth(600)
+
+        self.min_dist_to_obs_list = np.linspace(0, 0, self.max_len)
+        self.lgmd_out_list = np.linspace(0, 0, self.max_len)
+
+        self.lgmd_pw_1 = pg.PlotWidget(title='min distance to obs')
+        self.lgmd_pw_1.showGrid(x=True,y=True)
+        self.lgmd_p_1 = self.lgmd_pw_1.plot()
+
+        self.lgmd_pw_2 = pg.PlotWidget(title='lgmd output')
+        self.lgmd_pw_2.showGrid(x=True,y=True)
+        self.lgmd_p_2 = self.lgmd_pw_2.plot()
+
+        layout.addWidget(self.lgmd_pw_1)
+        layout.addWidget(self.lgmd_pw_2)
+
+        lgmd_plot_groupbox.setLayout(layout)
+        return lgmd_plot_groupbox
+    
+    def lgmd_plot_cb(self, min_dist, lgmd_out):
+        self.update_value_list(self.min_dist_to_obs_list, min_dist)
+        self.update_value_list(self.lgmd_out_list, lgmd_out)
+
+        self.lgmd_p_1.setData(self.min_dist_to_obs_list, pen=self.pen_red)
+        self.lgmd_p_2.setData(self.lgmd_out_list, pen=self.pen_red)
+        
 # trajectory plot groupbox
     def create_traj_plot_groupbox(self):
         traj_plot_groupbox = QGroupBox('Trajectory')
@@ -388,6 +425,16 @@ class TrainingUi(QWidget):
             self.background_img.setRect(pg.QtCore.QRectF(-220, -220, 440, 440))
             self.traj_pw.setXRange(max=220, min=-220)
             self.traj_pw.setYRange(max=220, min=-220)
+        elif self.cfg.get('options', 'env_name') == 'Tree_200':
+            background_image_path = 'resources/env_maps/trees_200_200.png'
+            img_data = Image.open(background_image_path)
+            image=np.copy(img_data)
+            self.background_img = pg.ImageItem(image)
+            self.traj_pw.addItem(self.background_img)
+            self.background_img.setZValue(-100)  # make sure image is behind other data
+            self.background_img.setRect(pg.QtCore.QRectF(-100, -100, 200, 200))
+            self.traj_pw.setXRange(max=100, min=-100)
+            self.traj_pw.setYRange(max=100, min=-100)
         elif self.cfg.get('options', 'env_name') == 'City':
             self.traj_pw.setXRange(max=300, min=0)
             self.traj_pw.setYRange(max=0, min=-300)
@@ -404,7 +451,8 @@ class TrainingUi(QWidget):
         self.traj_pw.clear()
 
         # set background image
-        if self.cfg.get('options', 'env_name') == 'SimpleAvoid' or self.cfg.get('options', 'env_name') == 'NH_center' or self.cfg.get('options', 'env_name') == 'City_400':
+        if self.cfg.get('options', 'env_name') == 'SimpleAvoid' or self.cfg.get('options', 'env_name') == 'NH_center' \
+            or self.cfg.get('options', 'env_name') == 'City_400' or self.cfg.get('options', 'env_name') == 'Tree_200':
             self.traj_pw.addItem(self.background_img)         
         
         # plot start, goal and trajectory

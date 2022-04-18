@@ -32,6 +32,13 @@ def main():
     training_thread.env.attitude_signal.connect(gui.attitude_plot_cb)
     training_thread.env.reward_signal.connect(gui.reward_plot_cb)
     training_thread.env.pose_signal.connect(gui.traj_plot_cb)
+    
+    cfg = ConfigParser()
+    cfg.read(config_file)
+    if cfg.has_option('options', 'perception'):
+        if cfg.get('options', 'perception') == 'lgmd':
+            training_thread.env.lgmd_signal.connect(gui.lgmd_plot_cb)
+    
     training_thread.start()
 
     sys.exit(app.exec_())

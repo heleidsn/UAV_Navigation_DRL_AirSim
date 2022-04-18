@@ -4,6 +4,7 @@ from PyQt5 import QtWidgets
 
 from utils.thread_evaluation import EvaluateThread
 from utils.ui_train import TrainingUi
+from configparser import ConfigParser
 
 def get_parser():
     parser = argparse.ArgumentParser(description="trained model evaluation with plot")
@@ -15,10 +16,10 @@ def get_parser():
 
 def main():
     
-    eval_path = 'logs_save/2022_03_10_16_06_test'
+    eval_path = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\City_400_SimpleFixedwing_Flapping_2D\2022_04_13_16_01_No_CNN_SAC'
 
     config_file = eval_path + '/config/config.ini'
-    model_file = eval_path + '/models/model_sb3'
+    model_file = eval_path + '/models/model_300000.zip'
     total_eval_episodes = 10
     
     # 1. Create the qt thread (is MainThread in fact)
@@ -33,6 +34,13 @@ def main():
     evaluate_thread.env.attitude_signal.connect(gui.attitude_plot_cb)
     evaluate_thread.env.reward_signal.connect(gui.reward_plot_cb)
     evaluate_thread.env.pose_signal.connect(gui.traj_plot_cb)
+    
+    cfg = ConfigParser()
+    cfg.read(config_file)
+    if cfg.has_option('options', 'perception'):
+        if cfg.get('options', 'perception') == 'lgmd':
+            evaluate_thread.env.lgmd_signal.connect(gui.lgmd_plot_cb)
+    
     evaluate_thread.start()
 
     # program will not terminate until you closed the GUI 
