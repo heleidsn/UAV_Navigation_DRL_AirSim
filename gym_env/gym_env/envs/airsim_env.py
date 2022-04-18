@@ -30,6 +30,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
     attitude_signal = pyqtSignal(int, np.ndarray, np.ndarray) # attitude (pitch, roll, yaw   current and command)
     reward_signal = pyqtSignal(int, float, float) # step_reward, total_reward
     pose_signal = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, np.ndarray)  # goal_pose start_pose current_pose trajectory
+    lgmd_signal = pyqtSignal(float, float) # min_distance, LGMD_out
 
     def __init__(self) -> None:
         """_summary_
@@ -274,13 +275,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.lgmd.update(img_gray)
             s_layer_abs = abs(self.lgmd.s_layer)
             
-            s_layer_clip = np.clip(s_layer_abs, 0, 30) / 30 * 255
-     
-            # # norm to 0-255
-            # if (s_layer_abs.max() - s_layer_abs.min()) != 0:
-            #     s_layer_norm = (s_layer_abs - s_layer_abs.min()) / (s_layer_abs.max() - s_layer_abs.min()) * 255
-            # else:
-            #     s_layer_norm = s_layer_abs
+            s_layer_clip = np.clip(s_layer_abs, 0, 10) / 10 * 255
                 
             s_layer_norm_uint8 = s_layer_clip.astype(np.uint8)
             cv2.imshow('s_layer_norm', s_layer_norm_uint8)
@@ -314,7 +309,6 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         image_with_state = image_with_state.swapaxes(0, 1)
         
         return image_with_state
-    
     
     def get_obs_lgmd(self):
         # get depth and rgb image
@@ -402,7 +396,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
     def compute_reward_fixedwing(self, done, action):
         reward = 0
         reward_reach = 10
-        reward_crash = -10
+        reward_crash = -30
         reward_outside = -10
 
         if not done:
@@ -412,11 +406,17 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
             state_cost = 0
             action_cost = 0
+            obs_cost = 0
 
-            # state_cost += 0.2 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max
-            # action_cost += 0.2 * abs(action[0]) /self.dynamic_model.roll_rate_max
+            state_cost = 0.1 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max
+            action_cost = 0.1 * abs(action[0]) /self.dynamic_model.roll_rate_max
+            
+            obs_punish_dist = 20
+            if self.min_distance_to_obstacles < obs_punish_dist:
+                obs_cost = 1 - (self.min_distance_to_obstacles - self.crash_distance) / (obs_punish_dist - self.crash_distance)
+                obs_cost = 0.5 * obs_cost
 
-            reward = reward_distance - state_cost - action_cost
+            reward = reward_distance - state_cost - action_cost - obs_cost
         else:
             if self.is_in_desired_pose():
                 reward = reward_reach
@@ -559,6 +559,8 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.attitude_signal.emit(step, np.asarray(self.dynamic_model.get_attitude()), np.asarray(self.dynamic_model.get_attitude_cmd()))
         self.reward_signal.emit(step, reward, self.cumulated_episode_reward)
         self.pose_signal.emit(np.asarray(self.dynamic_model.goal_position), np.asarray(self.dynamic_model.start_position), np.asarray(self.dynamic_model.get_position()), np.asarray(self.trajectory_list))
+        
+        self.lgmd_signal.emit(self.min_distance_to_obstacles, 0)
 
     def set_pyqt_signal_multirotor(self, action, reward):
         step = int(self.total_step)

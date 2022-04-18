@@ -123,9 +123,9 @@ class FixedwingDynamicsSimple():
         self.goal_distance = math.sqrt(goal_x*goal_x + goal_y*goal_y) * 2
         self.yaw = angle
         
-        print('yaw: ', math.degrees(self.yaw))
-        print('start: ', self.start_position)
-        print('goal: ', self.goal_position)
+        # print('yaw: ', math.degrees(self.yaw))
+        # print('start: ', self.start_position)
+        # print('goal: ', self.goal_position)
 
     def set_action(self, action, step):
         """
