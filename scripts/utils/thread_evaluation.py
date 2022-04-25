@@ -65,7 +65,7 @@ class EvaluateThread(QtCore.QThread):
         step_num_list = []
 
         while episode_num < self.total_eval_episodes:
-            unscaled_action, _ = model.predict(obs)
+            unscaled_action, _ = model.predict(obs, deterministic=True)
             time_step += 1
             new_obs, reward, done, info, = self.env.step(unscaled_action)
             pose = self.env.dynamic_model.get_position()
@@ -107,12 +107,13 @@ class EvaluateThread(QtCore.QThread):
         print('Average episode reward: ', reward_sum[:self.total_eval_episodes].mean(), 'Success rate:', np.mean(episode_successes), 'average step num: ', np.mean(step_num_list))
         
 def main():
-    config_file = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\NH_center_SimpleMultirotor_3D\2022_03_23_14_58_No_CNN_PPO\config\config.ini'
-    model_file = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\NH_center_SimpleMultirotor_3D\2022_03_23_14_58_No_CNN_PPO\models\model_240000.zip'
+    eval_path = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\Tree_200_SimpleFixedwing_Flapping_2D\2022_04_18_19_24_No_CNN_TD3'
+    config_file = eval_path + '/config/config.ini'
+    model_file = eval_path + '/models/model_130000.zip'
+    
     total_eval_episodes = 50
     evaluate_thread = EvaluateThread(config_file, model_file, total_eval_episodes)
     evaluate_thread.run()
-    # evaluate_thread.terminate()
 
 if __name__ == "__main__":
     try:
