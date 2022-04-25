@@ -62,7 +62,7 @@ class TrainingThread(QtCore.QThread):
             wandb.init(
                 project=self.project_name,
                 notes="with new reward function",
-                name=wandb_name + '-M1',
+                name=wandb_name + '-M1-city_new-lgmd_edge',
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 save_code=True,  # optional
             )
@@ -73,7 +73,7 @@ class TrainingThread(QtCore.QThread):
     def run(self):
         print("run training thread")
         
-        # init folders
+        #! -----------------------------------init folders-----------------------------------------
         now = datetime.datetime.now()
         now_string = now.strftime('%Y_%m_%d_%H_%M')
         file_path = 'logs/' + self.project_name + '/' + now_string + '_' + self.cfg.get('options', 'policy_name') + '_' + self.cfg.get('options', 'algo')
@@ -90,35 +90,48 @@ class TrainingThread(QtCore.QThread):
         with open(config_path + '\config.ini', 'w') as configfile:
             self.cfg.write(configfile)
         
-        # set policy
+        #! -----------------------------------policy selection-------------------------------------
         feature_num_state = self.env.dynamic_model.state_feature_length
         feature_num_cnn = self.cfg.getint('options', 'cnn_feature_num')
         policy_name = self.cfg.get('options', 'policy_name')
-        if policy_name == 'CNN_FC':
-            policy_used = CNN_FC
-        elif policy_name == 'CNN_GAP':
-            policy_used = CNN_GAP
-        elif policy_name == 'CNN_GAP_BN':
-            policy_used = CNN_GAP_BN
-        elif policy_name == 'CNN_MobileNet':
-            policy_used = CNN_MobileNet
-        elif policy_name == 'No_CNN':
-            policy_used = No_CNN
+        
+        if policy_name == 'lgmd_split':
+            policy_base = 'MlpPolicy'
+            policy_kwargs = dict(
+                activation_fn=th.nn.ReLU
+            )
         else:
-            raise Exception('policy select error: ', policy_name)
+            policy_base = 'CnnPolicy'
+            if policy_name == 'CNN_FC':
+                policy_used = CNN_FC
+            elif policy_name == 'CNN_GAP':
+                policy_used = CNN_GAP
+            elif policy_name == 'CNN_GAP_BN':
+                policy_used = CNN_GAP_BN
+            elif policy_name == 'CNN_MobileNet':
+                policy_used = CNN_MobileNet
+            elif policy_name == 'No_CNN':
+                policy_used = No_CNN
+            elif policy_name == 'lgmd_split':
+                policy_used = No_CNN
+                policy_base = 'MlpPolicy'
+            else:
+                raise Exception('policy select error: ', policy_name)
 
-        policy_kwargs = dict(
-            features_extractor_class=policy_used,
-            features_extractor_kwargs=dict(features_dim=feature_num_state+feature_num_cnn,
-                                           state_feature_dim=feature_num_state), 
-            activation_fn=th.nn.ReLU
-        )
+            policy_kwargs = dict(
+                features_extractor_class=policy_used,
+                features_extractor_kwargs=dict(features_dim=feature_num_state+feature_num_cnn,
+                                            state_feature_dim=feature_num_state), 
+                activation_fn=th.nn.ReLU
+            )
+
         policy_kwargs['net_arch']=[64, 32]
         
+        #! ---------------------------------algorithm selection-------------------------------------
         algo = self.cfg.get('options', 'algo')
         print('algo: ', algo)
         if algo == 'PPO':
-            model = PPO('CnnPolicy', self.env,
+            model = PPO(policy_base, self.env,
                         # n_steps = 200,
                         learning_rate=self.cfg.getfloat('PPO', 'learning_rate'),
                         policy_kwargs=policy_kwargs,
@@ -128,7 +141,7 @@ class TrainingThread(QtCore.QThread):
             n_actions = self.env.action_space.shape[-1]
             noise_sigma = self.cfg.getfloat('SAC', 'action_noise_sigma') * np.ones(n_actions)
             action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=noise_sigma)
-            model = SAC('CnnPolicy', self.env,
+            model = SAC(policy_base, self.env,
                         action_noise=action_noise,
                         policy_kwargs=policy_kwargs,
                         buffer_size=self.cfg.getint('SAC', 'buffer_size'),
@@ -144,7 +157,7 @@ class TrainingThread(QtCore.QThread):
             n_actions = self.env.action_space.shape[-1]
             noise_sigma = self.cfg.getfloat('TD3', 'action_noise_sigma') * np.ones(n_actions)
             action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=noise_sigma)
-            model = TD3('CnnPolicy', self.env, 
+            model = TD3(policy_base, self.env, 
                         action_noise=action_noise,
                         learning_rate=self.cfg.getfloat('TD3', 'learning_rate'),
                         gamma=self.cfg.getfloat('TD3', 'gamma'),
@@ -167,7 +180,7 @@ class TrainingThread(QtCore.QThread):
         #                      log_path= file_path + '/eval', eval_freq=eval_freq, n_eval_episodes=n_eval_episodes,
         #                      deterministic=True, render=False)
         
-        # train
+        #! -------------------------------------train-----------------------------------------
         print('start training model')
         total_timesteps = self.cfg.getint('options', 'total_timesteps')
         self.env.model = model
@@ -190,7 +203,7 @@ class TrainingThread(QtCore.QThread):
         else:
             model.learn(total_timesteps)
     
-        # self.run.finish()
+        #! ---------------------------model save----------------------------------------------------
         model_name = 'model_sb3'
         model.save(model_path + '/' + model_name)
         

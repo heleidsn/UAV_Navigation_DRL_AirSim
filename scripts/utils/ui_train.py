@@ -1,7 +1,7 @@
 '''
 @Author: Lei He
 @Date: 2020-06-01 22:52:40
-LastEditTime: 2022-04-18 16:08:08
+LastEditTime: 2022-04-25 16:12:23
 @Description: 
 @Github: https://github.com/heleidsn
 '''
@@ -14,6 +14,9 @@ import pyqtgraph as pg
 from PyQt5 import QtWidgets
 from PIL import Image
 from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QVBoxLayout, QWidget
+
+from pyqtgraph.widgets.MatplotlibWidget import MatplotlibWidget
+import seaborn as sns
 
 from configparser import ConfigParser
 
@@ -365,20 +368,33 @@ class TrainingUi(QWidget):
         self.lgmd_pw_2 = pg.PlotWidget(title='lgmd output')
         self.lgmd_pw_2.showGrid(x=True,y=True)
         self.lgmd_p_2 = self.lgmd_pw_2.plot()
+        
+        self.lgmd_pw_3 = MatplotlibWidget()
+        # self.lgmd_pw_3.showGrid(x=True,y=True)
+        # self.lgmd_p_3 = self.lgmd_pw_3.plot()
 
         layout.addWidget(self.lgmd_pw_1)
-        layout.addWidget(self.lgmd_pw_2)
+        # layout.addWidget(self.lgmd_pw_2)
+        layout.addWidget(self.lgmd_pw_3)
 
         lgmd_plot_groupbox.setLayout(layout)
         return lgmd_plot_groupbox
     
-    def lgmd_plot_cb(self, min_dist, lgmd_out):
+    def lgmd_plot_cb(self, min_dist, lgmd_out, lgmd_split):
         self.update_value_list(self.min_dist_to_obs_list, min_dist)
         self.update_value_list(self.lgmd_out_list, lgmd_out)
 
         self.lgmd_p_1.setData(self.min_dist_to_obs_list, pen=self.pen_red)
-        self.lgmd_p_2.setData(self.lgmd_out_list, pen=self.pen_red)
+        # self.lgmd_p_2.setData(self.lgmd_out_list, pen=self.pen_red)
         
+        # add feature bar
+        x = np.arange(len(lgmd_split))
+        self.lgmd_pw_3.getFigure().clf()
+        subplot1 = self.lgmd_pw_3.getFigure().add_subplot(111)
+        sns.barplot(x=x, y=lgmd_split, ax=subplot1)
+        subplot1.set(title='lgmd out split')
+        self.lgmd_pw_3.draw()
+
 # trajectory plot groupbox
     def create_traj_plot_groupbox(self):
         traj_plot_groupbox = QGroupBox('Trajectory')
