@@ -214,6 +214,47 @@ class No_CNN(BaseFeaturesExtractor):
         self.feature_all = x  # use  to update feature before FC
         
         return x
+    
+    
+class CustomNoCNN(BaseFeaturesExtractor):
+    """
+    :param observation_space: (gym.Space)
+    :param features_dim: (int) Number of features extracted.
+        This corresponds to the number of unit for the last layer.
+    """
+
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=4):
+        super(CustomNoCNN, self).__init__(observation_space, features_dim)
+        # We assume CxHxW images (channels first)
+        # Re-ordering will be done by pre-preprocessing or wrapper
+        # Can use model.actor.features_extractor.feature_all to print all features
+
+        # set CNN and state feature num
+        assert state_feature_dim > 0
+        self.feature_num_state = state_feature_dim
+        self.feature_all = None
+
+        # input size 80*100
+        # divided by 5
+        self.cnn = nn.Sequential(
+            nn.MaxPool2d(kernel_size=(16, 20)),
+            nn.Flatten()
+        )
+
+    def forward(self, observations: th.Tensor) -> th.Tensor:
+        depth_img = observations[:, 0:1, :, :]
+
+        cnn_feature = self.cnn(depth_img)  # [1, 25, 1, 1]
+
+        state_feature = observations[:, 1, 0, 0:self.feature_num_state]
+        # transfer state feature from 0~1 to -1~1
+        # state_feature = state_feature*2 - 1
+        # print(state_feature.size(), cnn_feature.size())
+        x = th.cat((cnn_feature, state_feature), dim=1)
+        # print(x)
+        self.feature_all = x  # use  to update feature before FC
+        
+        return x
 
 
 class CNN_FC(BaseFeaturesExtractor):

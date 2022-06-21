@@ -1,13 +1,9 @@
-from os import stat
-from random import random
-from tracemalloc import start
-from webbrowser import Elinks
 import gym
 from gym import spaces
 import airsim
-from configparser import ConfigParser, NoOptionError
-from matplotlib.pyplot import setp
+from configparser import NoOptionError
 import keyboard
+import time
 
 import torch as th
 import numpy as np
@@ -18,7 +14,8 @@ from .dynamics.multirotor_simple import MultirotorDynamicsSimple
 from .dynamics.multirotor_airsim import MultirotorDynamicsAirsim
 from .dynamics.fixedwing_simple import FixedwingDynamicsSimple
 
-from .lgmd.lgmd import LGMD
+# from .lgmd.lgmd import LGMD
+from .lgmd.lgmd_new import LGMD
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal
@@ -123,6 +120,15 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_y = [start_position[1] - goal_distance - 10, start_position[1] + goal_distance + 10]
             self.work_space_z = [0.5, 50]
             self.max_episode_steps = 400
+        elif self.env_name == 'Forest':
+            start_position = [0, 0, 8]
+            goal_position = [280, -200, 50]
+            self.dynamic_model.set_start(start_position, random_angle=0)
+            self.dynamic_model._set_goal_pose_single(goal_position)  
+            self.work_space_x = [-100, 100]
+            self.work_space_y = [-100, 100]
+            self.work_space_z = [0, 100]
+            self.max_episode_steps = 400
         else:
             raise Exception("Invalid env_name!", self.env_name)
             
@@ -149,13 +155,18 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.screen_width = cfg.getint('environment', 'screen_width')
 
         self.trajectory_list = []
+        self.lgmd_filter_alpha = 0.0
+        self.lgmd_out_1d_filtered = []
         
         # add observation space setting for LGMD split
         if cfg.has_section('lgmd'):
             lgmd_split_num = cfg.getint('lgmd', 'split_row_num') * cfg.getint('lgmd', 'split_col_num')
             state_feature = self.dynamic_model.state_feature_length
             obs_num = lgmd_split_num + state_feature
-            self.observation_space = spaces.Box(low=np.zeros(obs_num), high=np.ones(obs_num), dtype=np.float32)
+            # self.observation_space = spaces.Box(low=np.zeros(obs_num), high=np.ones(obs_num), dtype=np.float32)
+            self.observation_space = spaces.Box(low=-1, high=1, \
+                                                shape=(1, obs_num),\
+                                                dtype=np.float32)
         else:
             self.observation_space = spaces.Box(low=0, high=255, \
                                                 shape=(self.screen_height, self.screen_width, 2),\
@@ -173,8 +184,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         if cfg.has_option('options', 'perception'):
             if cfg.get('options', 'perception') == 'lgmd':
                 print('Using LGMD perception')
-                self.lgmd = LGMD('norm')
-
+                self.lgmd = LGMD()
 
     def reset(self):
         
@@ -282,10 +292,11 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         '''
         
         if self.lgmd is not None:
-            depth_meter, img_gray = self.get_obs_lgmd()
+            depth_meter, img_gray = self.get_depth_rgb_image()
             self.min_distance_to_obstacles = depth_meter.min()
             
-            self.lgmd.update(img_gray)
+            image_moment = self.lgmd.get_image_moment(img_gray)
+            self.lgmd.update(image_moment)
             
             # lgmd_norm
             s_layer_abs = abs(self.lgmd.s_layer)
@@ -328,7 +339,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         
         return image_with_state
     
-    def get_obs_lgmd(self):
+    def get_depth_rgb_image(self):
         # get depth and rgb image
         responses = self.client.simGetImages([
             airsim.ImageRequest("0", airsim.ImageType.DepthVis, True),
@@ -376,26 +387,42 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         Returns:
             _type_: _description_
         """
-        depth_meter, img_gray = self.get_obs_lgmd()
+        # time_now = time.time()
+        depth_meter, img_gray = self.get_depth_rgb_image()
+        # time_used = time.time() - time_now
+        # print(time_used)
         self.min_distance_to_obstacles = depth_meter.min()
         
-        self.lgmd.update(img_gray)
+        # img_moment, _ = self.lgmd.get_image_moment(img_gray)
+        # self.lgmd.update(img_moment)
+        # lgmd_s_layer = self.lgmd.s_layer
+        # cv2.imshow('image moment', img_moment)
+        # cv2.imshow('s layer', lgmd_s_layer)
+        # cv2.waitKey(1)
         
-        s_layer_abs = abs(self.lgmd.s_layer)
-        s_layer_clip = np.clip(s_layer_abs, 0, 10) / 10 * 255
-        s_layer_norm_uint8 = s_layer_clip.astype(np.uint8)
+        # use depth image to train agent
         
-        cv2.imshow('s_layer_norm', s_layer_norm_uint8)
-        cv2.waitKey(1)
+        lgmd_out_array = np.array_split(depth_meter, 5, axis=1)
+        lgmd_out_1d = []
+        for i in range(5):
+            lgmd_out_1d.append(np.min(lgmd_out_array[i]))
+        # print(lgmd_out_1d)
+        lgmd_out_1d_clip = np.clip(lgmd_out_1d, 0, 15) / 15
+        lgmd_out_1d_clip = (lgmd_out_1d_clip - 0.5) * 2
         
-        # get lgmd feature and transfer to 0-1
-        lgmd_out_1d = self.lgmd.out_split / 3000
-        lgmd_out_1d_clip = np.clip(lgmd_out_1d, 0, 1)
+        if len(self.lgmd_out_1d_filtered) == 0:
+            self.lgmd_out_1d_filtered = lgmd_out_1d_clip
+        else:
+            for i in range(5):
+                self.lgmd_out_1d_filtered[i] = self.lgmd_filter_alpha * self.lgmd_out_1d_filtered[i] + (1 - self.lgmd_filter_alpha) * lgmd_out_1d_clip[i]
         
-        # get state feature 0-1
-        state_feature = self.dynamic_model._get_state_feature() / 255
+        # print(lgmd_out_1d_clip, self.lgmd_out_1d_filtered)
+        # get state feature -1~1
+        state_feature = self.dynamic_model._get_state_feature()
         
-        obs = np.append(lgmd_out_1d_clip, state_feature)
+        # obs = np.append(lgmd_out_1d_clip, state_feature).reshape((1,6)).astype(np.uint8)
+        obs = np.append(self.lgmd_out_1d_filtered, state_feature).reshape((1,6))
+        
         
         self.feature_all = obs
         
@@ -441,28 +468,29 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
     def compute_reward_fixedwing(self, done, action):
         reward = 0
-        reward_reach = 10
-        reward_crash = -30
-        reward_outside = -10
+        reward_reach = 0
+        reward_crash = 0
+        reward_outside = 0
 
         if not done:
             distance_now = self.get_distance_to_goal_3d()
-            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 100
+            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 5
             self.previous_distance_from_des_point = distance_now
 
             state_cost = 0
             action_cost = 0
             obs_cost = 0
 
-            state_cost = 0.1 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max
+            state_cost = 0.0 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max + 0.1 * abs(self.dynamic_model.state_norm[0])
             action_cost = 0.1 * abs(action[0]) /self.dynamic_model.roll_rate_max
             
-            obs_punish_dist = 20
+            obs_punish_dist = 15
             if self.min_distance_to_obstacles < obs_punish_dist:
                 obs_cost = 1 - (self.min_distance_to_obstacles - self.crash_distance) / (obs_punish_dist - self.crash_distance)
-                obs_cost = 0.5 * obs_cost
+                obs_cost = 0.5 * obs_cost ** 2
 
-            reward = reward_distance - state_cost - action_cost - obs_cost
+            # reward = reward_distance - state_cost - action_cost - obs_cost
+            reward = reward_distance - obs_cost
         else:
             if self.is_in_desired_pose():
                 reward = reward_reach
@@ -471,7 +499,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             if self.is_not_inside_workspace():
                 reward = reward_outside
 
-        return reward
+        return reward * 5
 
     def compute_reward_with_action(self, done, action):
         reward = 0
@@ -609,7 +637,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.reward_signal.emit(step, reward, self.cumulated_episode_reward)
         self.pose_signal.emit(np.asarray(self.dynamic_model.goal_position), np.asarray(self.dynamic_model.start_position), np.asarray(self.dynamic_model.get_position()), np.asarray(self.trajectory_list))
         
-        self.lgmd_signal.emit(self.min_distance_to_obstacles, 0, self.feature_all)
+        # self.lgmd_signal.emit(self.min_distance_to_obstacles, 0, self.feature_all)
 
     def set_pyqt_signal_multirotor(self, action, reward):
         step = int(self.total_step)

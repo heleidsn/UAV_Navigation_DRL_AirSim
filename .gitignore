@@ -6,3 +6,6 @@ gym_env/gym_env.egg-info/
 scripts/utils/__pycache__/custom_policy_sb3.cpython-38.pyc
 scripts/visulization/data/*
 logs_save/*
+plot_results/*
+img_save/*
+scripts/lgmd/*

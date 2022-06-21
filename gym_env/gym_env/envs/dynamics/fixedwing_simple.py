@@ -54,7 +54,7 @@ class FixedwingDynamicsSimple():
                                        high=np.array([self.roll_max]), dtype=np.float32)
 
         
-        self.state_feature_length = 3
+        self.state_feature_length = 1
         self.goal_distance = 0
         
         self.env_name = cfg.get('options', 'env_name')
@@ -64,6 +64,8 @@ class FixedwingDynamicsSimple():
         if self.env_name == 'City_400':
             self.update_start_goal_rect(size=200)
         if self.env_name == 'Tree_200':
+            self.update_start_goal_rect(size=80)
+        if self.env_name == 'Forest':
             self.update_start_goal_rect(size=80)
         
         self.x = self.start_position[0]
@@ -169,7 +171,7 @@ class FixedwingDynamicsSimple():
         pose.position.x_val = self.x
         pose.position.y_val = self.y
         pose.position.z_val = - self.z
-        pose.orientation = airsim.to_quaternion(self.pitch, self.roll, self.yaw)
+        pose.orientation = airsim.to_quaternion(self.pitch, 0, self.yaw)
         self.client.simSetVehiclePose(pose, False)
    
         return 0
@@ -190,6 +192,9 @@ class FixedwingDynamicsSimple():
 
         self.state_raw = np.array([distance, math.degrees(relative_yaw), math.degrees(self.roll)])
         self.state_norm = np.array([distance_norm, relative_yaw_norm, roll_norm])
+        self.state_norm = np.array([distance_norm, relative_yaw_norm, 127])
+        
+        self.state_norm = np.array([relative_yaw / math.pi]) # 输出-1~1
     
         return self.state_norm
     

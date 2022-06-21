@@ -1,7 +1,7 @@
 '''
 @Author: Lei He
 @Date: 2020-06-01 22:52:40
-LastEditTime: 2022-04-25 16:12:23
+LastEditTime: 2022-06-20 11:25:36
 @Description: 
 @Github: https://github.com/heleidsn
 '''
@@ -374,8 +374,8 @@ class TrainingUi(QWidget):
         # self.lgmd_p_3 = self.lgmd_pw_3.plot()
 
         layout.addWidget(self.lgmd_pw_1)
-        # layout.addWidget(self.lgmd_pw_2)
-        layout.addWidget(self.lgmd_pw_3)
+        layout.addWidget(self.lgmd_pw_2)
+        # layout.addWidget(self.lgmd_pw_3)
 
         lgmd_plot_groupbox.setLayout(layout)
         return lgmd_plot_groupbox
@@ -385,15 +385,15 @@ class TrainingUi(QWidget):
         self.update_value_list(self.lgmd_out_list, lgmd_out)
 
         self.lgmd_p_1.setData(self.min_dist_to_obs_list, pen=self.pen_red)
-        # self.lgmd_p_2.setData(self.lgmd_out_list, pen=self.pen_red)
+        self.lgmd_p_2.setData(self.lgmd_out_list, pen=self.pen_red)
         
         # add feature bar
-        x = np.arange(len(lgmd_split))
-        self.lgmd_pw_3.getFigure().clf()
-        subplot1 = self.lgmd_pw_3.getFigure().add_subplot(111)
-        sns.barplot(x=x, y=lgmd_split, ax=subplot1)
-        subplot1.set(title='lgmd out split')
-        self.lgmd_pw_3.draw()
+        # x = np.arange(len(lgmd_split))
+        # self.lgmd_pw_3.getFigure().clf()
+        # subplot1 = self.lgmd_pw_3.getFigure().add_subplot(111)
+        # sns.barplot(x=x, y=lgmd_split, ax=subplot1)
+        # subplot1.set(title='lgmd out split')
+        # self.lgmd_pw_3.draw()
 
 # trajectory plot groupbox
     def create_traj_plot_groupbox(self):
@@ -451,6 +451,16 @@ class TrainingUi(QWidget):
             self.background_img.setRect(pg.QtCore.QRectF(-100, -100, 200, 200))
             self.traj_pw.setXRange(max=100, min=-100)
             self.traj_pw.setYRange(max=100, min=-100)
+        elif self.cfg.get('options', 'env_name') == 'Forest':
+            background_image_path = 'resources/env_maps/Forest.png'
+            img_data = Image.open(background_image_path)
+            image=np.copy(img_data)
+            self.background_img = pg.ImageItem(image)
+            self.traj_pw.addItem(self.background_img)
+            self.background_img.setZValue(-100)  # make sure image is behind other data
+            self.background_img.setRect(pg.QtCore.QRectF(-100, -100, 200, 200))
+            self.traj_pw.setXRange(max=100, min=-100)
+            self.traj_pw.setYRange(max=100, min=-100)
         elif self.cfg.get('options', 'env_name') == 'City':
             self.traj_pw.setXRange(max=300, min=0)
             self.traj_pw.setYRange(max=0, min=-300)
@@ -467,8 +477,8 @@ class TrainingUi(QWidget):
         self.traj_pw.clear()
 
         # set background image
-        if self.cfg.get('options', 'env_name') == 'SimpleAvoid' or self.cfg.get('options', 'env_name') == 'NH_center' \
-            or self.cfg.get('options', 'env_name') == 'City_400' or self.cfg.get('options', 'env_name') == 'Tree_200':
+        background_list = ['SimpleAvoid', 'NH_center', 'City_400', 'Tree_200', 'Forest']
+        if self.cfg.get('options', 'env_name') in background_list:
             self.traj_pw.addItem(self.background_img)         
         
         # plot start, goal and trajectory
