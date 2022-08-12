@@ -9,6 +9,10 @@ class MultirotorDynamicsSimple():
     It has position (x, y, z, yaw) in local frame and v_xy v_z yaw_rate as states
     State:
         dist_xy, dist_z, relative_yaw, v_xy, vz, yaw_rate 
+        Note:
+            Using only position error as state, the controller will be a nolinear P controller
+            Using velocity as state, the controller is similar to a PD controller, but velocity changing fast,
+            it will lead to vibration
     Action: 
         v_xy, v_z, yaw_rate
     '''
@@ -16,6 +20,7 @@ class MultirotorDynamicsSimple():
         
         # config
         self.navigation_3d = cfg.getboolean('options', 'navigation_3d')
+        self.using_velocity_state = cfg.getboolean('options', 'using_velocity_state')
         self.dt = cfg.getfloat('multirotor', 'dt')
 
         # AirSim Client
@@ -48,11 +53,17 @@ class MultirotorDynamicsSimple():
         self.max_vertical_difference = 5
         
         if self.navigation_3d:
-            self.state_feature_length = 6
+            if self.using_velocity_state:
+                self.state_feature_length = 6
+            else:
+                self.state_feature_length = 3
             self.action_space = spaces.Box(low=np.array([self.v_xy_min , -self.v_z_max, -self.yaw_rate_max_rad]), \
                                             high=np.array([self.v_xy_max, self.v_z_max, self.yaw_rate_max_rad]), dtype=np.float32)
         else:
-            self.state_feature_length = 4
+            if self.using_velocity_state:
+                self.state_feature_length = 4
+            else:
+                self.state_feature_length = 2
             self.action_space = spaces.Box(low=np.array([self.v_xy_min , -self.yaw_rate_max_rad]), \
                                                 high=np.array([self.v_xy_max, self.yaw_rate_max_rad]), \
                                                 dtype=np.float32)
@@ -80,9 +91,7 @@ class MultirotorDynamicsSimple():
         self.client.simSetVehiclePose(pose, False)
 
     def set_action(self, action):
-        # 需要对速度指令按照加速度进行限制
-        # update dynamics
-        
+        # ------------update control command---------------
         self.v_xy = action[0]
         self.yaw_rate = action[-1]
         if self.navigation_3d:
@@ -90,17 +99,19 @@ class MultirotorDynamicsSimple():
         else:
             self.v_z = 0
         
+        # ------------update position-----------------------
+        self.x += self.v_xy * math.cos(self.yaw) * self.dt
+        self.y += self.v_xy * math.sin(self.yaw) * self.dt
+        self.z += self.v_z * self.dt
+        
+        # ------------update yaw----------------------------
         self.yaw += self.yaw_rate * self.dt
         if self.yaw > math.radians(180):
             self.yaw -= math.pi * 2
         elif self.yaw < math.radians(-180):
             self.yaw += math.pi * 2
-        
-        self.x += self.v_xy * math.cos(self.yaw) * self.dt
-        self.y += self.v_xy * math.sin(self.yaw) * self.dt
-        self.z += self.v_z * self.dt
 
-        # update airsim pose
+        # ------------update AirSim-------------------------
         pose = self.client.simGetVehiclePose()
         pose.position.x_val = self.x
         pose.position.y_val = self.y
@@ -171,9 +182,9 @@ class MultirotorDynamicsSimple():
     def _get_state_feature(self):
         '''
         @description: update and get current uav state and state_norm 
-        @param {type} 
         @return: state_norm
-                    normalized state range 0-255
+                    normalized state to 0-255
+                    the stable baselines 3 observation function will normalize image from 0-255 to 0-1
         '''
         
         distance = self.get_distance_to_goal_2d()
@@ -190,19 +201,22 @@ class MultirotorDynamicsSimple():
         linear_velocity_z = self.v_z
         linear_velocity_z_norm = (linear_velocity_z / self.v_z_max / 2 + 0.5) * 255
         angular_velocity_norm = (self.yaw_rate / self.yaw_rate_max_rad / 2 + 0.5) * 255
-
+        
+        # state: distance_h, distance_v, relative yaw, velocity_x, velocity_z, velocity_yaw
+        self.state_raw = np.array([distance, relative_pose_z,  math.degrees(relative_yaw), linear_velocity_xy, linear_velocity_z,  math.degrees(self.yaw_rate)])
+        state_norm = np.array([distance_norm, vertical_distance_norm, relative_yaw_norm, linear_velocity_norm, linear_velocity_z_norm, angular_velocity_norm])
+        state_norm = np.clip(state_norm, 0, 255)
+        
         if self.navigation_3d:
-            # state: distance_h, distance_v, relative yaw, velocity_x, velocity_z, velocity_yaw
-            self.state_raw = np.array([distance, relative_pose_z,  math.degrees(relative_yaw), linear_velocity_xy, linear_velocity_z,  math.degrees(self.yaw_rate)])
-            state_norm = np.array([distance_norm, vertical_distance_norm, relative_yaw_norm, linear_velocity_norm, linear_velocity_z_norm, angular_velocity_norm])
-            state_norm = np.clip(state_norm, 0, 255)
-            self.state_norm = state_norm
+            if self.using_velocity_state == False:
+                state_norm = state_norm[:, 3]
         else:
-            self.state_raw = np.array([distance, math.degrees(relative_yaw), linear_velocity_xy,  math.degrees(self.yaw_rate)])
-            state_norm = np.array([distance_norm, relative_yaw_norm, linear_velocity_norm, angular_velocity_norm])
-            state_norm = np.clip(state_norm, 0, 255)
-            self.state_norm = state_norm
-    
+            state_norm = np.array([state_norm[0], state_norm[2], state_norm[3], state_norm[5]])
+            if self.using_velocity_state == False:
+                state_norm = state_norm[:, 2]
+
+        self.state_norm = state_norm
+        
         return state_norm
 
     def _get_relative_yaw(self):
@@ -237,9 +251,6 @@ class MultirotorDynamicsSimple():
 
     def get_position(self):
         """ get position in UE4 coordinate
-
-        Returns:
-            _type_: _description_
         """
         position = self.client.simGetVehiclePose().position
         return [position.x_val, position.y_val, -position.z_val]
