@@ -209,11 +209,11 @@ class MultirotorDynamicsSimple():
         
         if self.navigation_3d:
             if self.using_velocity_state == False:
-                state_norm = state_norm[:, 3]
+                state_norm = state_norm[:3]
         else:
             state_norm = np.array([state_norm[0], state_norm[2], state_norm[3], state_norm[5]])
             if self.using_velocity_state == False:
-                state_norm = state_norm[:, 2]
+                state_norm = state_norm[:2]
 
         self.state_norm = state_norm
         

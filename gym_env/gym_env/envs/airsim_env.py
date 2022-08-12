@@ -49,7 +49,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.keyboard_debug = cfg.getboolean('options', 'keyboard_debug')
         self.generate_q_map = cfg.getboolean('options', 'generate_q_map')
         self.percption_type = cfg.get('options', 'perception')
-        print('Environment: ', self.env_name, "dynamics: ", self.dynamic_name, 'perception: ', self.percption_type)
+        print('Environment: ', self.env_name, "Dynamics: ", self.dynamic_name, 'Perception: ', self.percption_type)
 
         # set dynamics
         if self.dynamic_name == 'SimpleFixedwing':
