@@ -21,7 +21,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal
 
 class AirsimGymEnv(gym.Env, QtCore.QThread):
-
+    # pyqt signal for visualization
     action_signal = pyqtSignal(int, np.ndarray) # action (fixedwing: [roll, pitch, yaw, airspeed], multirotor: [v_xy, v_z, yaw_rate])
     state_signal = pyqtSignal(int, np.ndarray) # state_raw (multirotor: [dist_xy, dist_z, relative_yaw, v_xy, v_z, yaw_rate])
     attitude_signal = pyqtSignal(int, np.ndarray, np.ndarray) # attitude (pitch, roll, yaw   current and command)
@@ -42,17 +42,16 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
     def set_config(self, cfg):
         """get config from .ini file
-
-        Args:
-            cfg (_type_): config file
         """
         self.cfg = cfg
         self.env_name = cfg.get('options', 'env_name')
         self.dynamic_name = cfg.get('options', 'dynamic_name')
         self.keyboard_debug = cfg.getboolean('options', 'keyboard_debug')
         self.generate_q_map = cfg.getboolean('options', 'generate_q_map')
-        print('Environment: ', self.env_name, "dynamics: ", self.dynamic_name)
+        self.percption_type = cfg.get('options', 'perception')
+        print('Environment: ', self.env_name, "dynamics: ", self.dynamic_name, 'perception: ', self.percption_type)
 
+        # set dynamics
         if self.dynamic_name == 'SimpleFixedwing':
             self.dynamic_model = FixedwingDynamicsSimple(cfg)
         elif self.dynamic_name == 'SimpleMultirotor':
@@ -128,7 +127,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_x = [-100, 100]
             self.work_space_y = [-100, 100]
             self.work_space_z = [0, 100]
-            self.max_episode_steps = 400
+            self.max_episode_steps = 300
         else:
             raise Exception("Invalid env_name!", self.env_name)
             
@@ -155,17 +154,18 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.screen_width = cfg.getint('environment', 'screen_width')
 
         self.trajectory_list = []
-        self.lgmd_filter_alpha = 0.0
-        self.lgmd_out_1d_filtered = []
         
         # add observation space setting for LGMD split
-        if cfg.has_section('lgmd'):
-            lgmd_split_num = cfg.getint('lgmd', 'split_row_num') * cfg.getint('lgmd', 'split_col_num')
+        if self.percption_type == 'lgmd' and cfg.has_section('lgmd'):
+            self.lgmd_split_num = cfg.getint('lgmd', 'split_row_num') * cfg.getint('lgmd', 'split_col_num')
             state_feature = self.dynamic_model.state_feature_length
-            obs_num = lgmd_split_num + state_feature
+            self.obs_num = self.lgmd_split_num + state_feature
+            
+            self.lgmd_filter_alpha = cfg.getfloat('lgmd', 'filter_alpha')
+            self.lgmd_out_1d_filtered = []
             # self.observation_space = spaces.Box(low=np.zeros(obs_num), high=np.ones(obs_num), dtype=np.float32)
             self.observation_space = spaces.Box(low=-1, high=1, \
-                                                shape=(1, obs_num),\
+                                                shape=(1, self.obs_num),\
                                                 dtype=np.float32)
         else:
             self.observation_space = spaces.Box(low=0, high=255, \
@@ -185,6 +185,8 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             if cfg.get('options', 'perception') == 'lgmd':
                 print('Using LGMD perception')
                 self.lgmd = LGMD()
+            else:
+                print('Using depth perception')
 
     def reset(self):
         
@@ -199,7 +201,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         self.trajectory_list = []
 
-        if self.cfg.has_section('lgmd'):
+        if self.percption_type == 'lgmd':
             obs = self.get_obs_lgmd_split()
         else:
             obs = self.get_obs()
@@ -218,7 +220,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.trajectory_list.append(position_ue4)
 
         # get new obs
-        if self.cfg.has_section('lgmd'):
+        if self.percption_type == 'lgmd':
             obs = self.get_obs_lgmd_split()
         else:
             obs = self.get_obs()
@@ -236,6 +238,8 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             reward = self.compute_reward_fixedwing(done, action)
         elif self.reward_type == 'reward_with_action':
             reward = self.compute_reward_with_action(done, action)
+        elif self.reward_type == 'reward_new':
+            reward = self.compute_reward_multirotor_new(done, action)
         else:
             reward = self.compute_reward(done, action)
             
@@ -287,8 +291,6 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
     def get_obs(self):
         '''
         @description: get depth image and target features for navigation
-        @param {type}
-        @return:
         '''
         
         if self.lgmd is not None:
@@ -316,13 +318,13 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             # 1. get current depth image and transfer to 0-255  0-20m 255-0m
             image = self.get_depth_image()
             image_resize = cv2.resize(image, (self.screen_width, self.screen_height))
-            image_scaled = image_resize * 100
-            self.min_distance_to_obstacles = image_scaled.min()
-            image_scaled = -np.clip(image_scaled, 0, self.max_depth_meters) / self.max_depth_meters * 255 + 255  
+            self.min_distance_to_obstacles = image_resize.min()
+            image_scaled = -np.clip(image_resize, 0, self.max_depth_meters) / self.max_depth_meters * 255 + 255  
             image_uint8 = image_scaled.astype(np.uint8)
             # image_uint8 = (np.ones((80, 100)) * 0).astype(np.uint8)
 
         assert image_uint8.shape[0] == self.screen_height and image_uint8.shape[1] == self.screen_width, 'image size not match'
+        # print('min_dist: ', self.min_distance_to_obstacles)
         
         # 2. get current state (relative_pose, velocity)
         state_feature_array = np.zeros((self.screen_height, self.screen_width))
@@ -378,8 +380,9 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                 airsim.ImageRequest("0", airsim.ImageType.DepthVis, True))
 
         depth_img = airsim.list_to_2d_float_array(responses[0].image_data_float, responses[0].width, responses[0].height)
+        depth_meter = depth_img * 100
 
-        return depth_img
+        return depth_meter
     
     def get_obs_lgmd_split(self):
         """Return 1-d lgmd output with state feature
@@ -387,42 +390,63 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         Returns:
             _type_: _description_
         """
-        # time_now = time.time()
-        depth_meter, img_gray = self.get_depth_rgb_image()
-        # time_used = time.time() - time_now
-        # print(time_used)
-        self.min_distance_to_obstacles = depth_meter.min()
-        
-        # img_moment, _ = self.lgmd.get_image_moment(img_gray)
-        # self.lgmd.update(img_moment)
-        # lgmd_s_layer = self.lgmd.s_layer
-        # cv2.imshow('image moment', img_moment)
-        # cv2.imshow('s layer', lgmd_s_layer)
-        # cv2.waitKey(1)
+        # get depth and rgb image
+        # depth_meter, img_gray = self.get_depth_rgb_image()
+        # depth_upper = depth_meter[:40, :]
+        # self.min_distance_to_obstacles = depth_meter.min()
         
         # use depth image to train agent
-        
-        lgmd_out_array = np.array_split(depth_meter, 5, axis=1)
         lgmd_out_1d = []
-        for i in range(5):
-            lgmd_out_1d.append(np.min(lgmd_out_array[i]))
-        # print(lgmd_out_1d)
-        lgmd_out_1d_clip = np.clip(lgmd_out_1d, 0, 15) / 15
-        lgmd_out_1d_clip = (lgmd_out_1d_clip - 0.5) * 2
         
+        if self.cfg.get('lgmd', 'lgmd_perception') == 'depth':
+            depth_meter = self.get_depth_image()
+            depth_upper = depth_meter[:40, :]
+            self.min_distance_to_obstacles = depth_meter.min()
+            lgmd_out_array = np.array_split(depth_upper, self.lgmd_split_num, axis=1)
+            for i in range(self.lgmd_split_num):
+                lgmd_out_1d.append(np.min(lgmd_out_array[i]))
+            
+            if self.cfg.getboolean('options', 'keyboard_debug'):
+                print('depth split: ', lgmd_out_1d)
+            lgmd_out_1d_clip = np.clip(lgmd_out_1d, 0, 20) / 20
+            lgmd_out_1d_clip = (lgmd_out_1d_clip - 0.5) * 2
+            
+        elif self.cfg.get('lgmd', 'lgmd_perception') == 'lgmd':
+            depth_meter, img_gray = self.get_depth_rgb_image()
+            self.min_distance_to_obstacles = depth_meter.min()
+            img_moment, _ = self.lgmd.get_image_moment(img_gray)
+            self.lgmd.update(img_moment)
+            lgmd_s_layer = self.lgmd.s_layer
+            
+            # imgs_show = np.hstack([img_moment, lgmd_s_layer])
+            # size = (88, 60)
+            # scale = 4
+            # cv2.namedWindow('lgmd', cv2.WINDOW_NORMAL)
+            # cv2.resizeWindow('lgmd', size[0]*scale*2, size[1]*scale)
+            # cv2.imshow('lgmd', imgs_show)
+            # cv2.waitKey(1)
+            
+            lgmd_out_array = np.array_split(lgmd_s_layer, self.lgmd_split_num, axis=1)
+            for i in range(self.lgmd_split_num):
+                lgmd_out_1d.append(np.mean(lgmd_out_array[i]))
+                
+            # 设置上下限 15-60
+            # lgmd_out_1d_clip = np.clip(lgmd_out_1d, 0, 70) / 70
+            # lgmd_out_1d_clip = (lgmd_out_1d_clip - 0.5) * 2  
+            
+            lgmd_out_1d_clip = (np.clip(lgmd_out_1d, 15, 60) - 15) / 45
+            lgmd_out_1d_clip = (lgmd_out_1d_clip - 0.5) * 2  
+
         if len(self.lgmd_out_1d_filtered) == 0:
             self.lgmd_out_1d_filtered = lgmd_out_1d_clip
         else:
-            for i in range(5):
-                self.lgmd_out_1d_filtered[i] = self.lgmd_filter_alpha * self.lgmd_out_1d_filtered[i] + (1 - self.lgmd_filter_alpha) * lgmd_out_1d_clip[i]
+            for i in range(self.lgmd_split_num):
+                self.lgmd_out_1d_filtered[i] = (1-self.lgmd_filter_alpha) * self.lgmd_out_1d_filtered[i] + self.lgmd_filter_alpha * lgmd_out_1d_clip[i]
         
-        # print(lgmd_out_1d_clip, self.lgmd_out_1d_filtered)
         # get state feature -1~1
         state_feature = self.dynamic_model._get_state_feature()
-        
-        # obs = np.append(lgmd_out_1d_clip, state_feature).reshape((1,6)).astype(np.uint8)
-        obs = np.append(self.lgmd_out_1d_filtered, state_feature).reshape((1,6))
-        
+
+        obs = np.append(self.lgmd_out_1d_filtered, state_feature).reshape((1, self.obs_num))
         
         self.feature_all = obs
         
@@ -468,8 +492,8 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
     def compute_reward_fixedwing(self, done, action):
         reward = 0
-        reward_reach = 0
-        reward_crash = 0
+        reward_reach = 100
+        reward_crash = -100
         reward_outside = 0
 
         if not done:
@@ -481,25 +505,64 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             action_cost = 0
             obs_cost = 0
 
-            state_cost = 0.0 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max + 0.1 * abs(self.dynamic_model.state_norm[0])
-            action_cost = 0.1 * abs(action[0]) /self.dynamic_model.roll_rate_max
+            # state_cost = 0.0 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max
+            # distance_coeff = np.clip([1 - distance_now / self.dynamic_model.goal_distance], 0, 1)[0]
+            # relative_yaw_cost = (distance_coeff ** 2) * (self.dynamic_model.state_norm[1]**2)
+            relative_yaw_cost = abs(self.dynamic_model.state_norm[0])
+            action_cost = abs(action[0]) /self.dynamic_model.roll_rate_max
             
             obs_punish_dist = 15
             if self.min_distance_to_obstacles < obs_punish_dist:
                 obs_cost = 1 - (self.min_distance_to_obstacles - self.crash_distance) / (obs_punish_dist - self.crash_distance)
                 obs_cost = 0.5 * obs_cost ** 2
-
-            # reward = reward_distance - state_cost - action_cost - obs_cost
-            reward = reward_distance - obs_cost
+            reward = - (2 * relative_yaw_cost + 0.5 * action_cost)
         else:
             if self.is_in_desired_pose():
-                reward = reward_reach
+                reward = reward_reach * (1 - abs(self.dynamic_model.state_norm[0]))
+                # reward = reward_reach
             if self.is_crashed():
                 reward = reward_crash
             if self.is_not_inside_workspace():
                 reward = reward_outside
 
-        return reward * 5
+        return reward
+    
+    def compute_reward_multirotor_new(self, done, action):
+        reward = 0
+        reward_reach = 100
+        reward_crash = -100
+        reward_outside = 0
+
+        if not done:
+            distance_now = self.get_distance_to_goal_3d()
+            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 5
+            self.previous_distance_from_des_point = distance_now
+
+            state_cost = 0
+            action_cost = 0
+            obs_cost = 0
+            
+            yaw_error_deg = self.dynamic_model.state_raw[1]
+
+            relative_yaw_cost = abs(yaw_error_deg/180)
+            action_cost = abs(action[1]) /self.dynamic_model.yaw_rate_max_rad
+            
+            obs_punish_dist = 5
+            if self.min_distance_to_obstacles < obs_punish_dist:
+                obs_cost = 1 - (self.min_distance_to_obstacles - self.crash_distance) / (obs_punish_dist - self.crash_distance)
+                obs_cost = 0.5 * obs_cost ** 2
+            reward = - (2 * relative_yaw_cost + 0.5 * action_cost)
+        else:
+            if self.is_in_desired_pose():
+                # 到达之后根据yaw偏差对reward进行scale
+                reward = reward_reach * (1 - abs(self.dynamic_model.state_norm[1]))
+                # reward = reward_reach
+            if self.is_crashed():
+                reward = reward_crash
+            if self.is_not_inside_workspace():
+                reward = reward_outside
+
+        return reward
 
     def compute_reward_with_action(self, done, action):
         reward = 0
@@ -595,7 +658,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 #! -----------used for plot or show states------------------------------------------------------------------
 
     def print_train_info(self, action, reward, info):
-        if self.cfg.has_section('lgmd'):
+        if self.percption_type == 'lgmd' and self.cfg.has_section('lgmd'):
             feature_all = self.feature_all
         else:
             if self.cfg.get('options', 'algo') == 'TD3' or self.cfg.get('options', 'algo') == 'SAC':
@@ -613,6 +676,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.client.simPrintLogMessage('Info: ', str(info))
         self.client.simPrintLogMessage('Feature_norm: ', str(self.dynamic_model.state_norm))
         self.client.simPrintLogMessage('Feature_raw: ', str(self.dynamic_model.state_raw))
+        self.client.simPrintLogMessage('Min_depth: ', str(self.min_distance_to_obstacles))
 
     def set_pyqt_signal_fixedwing(self, action, reward, done):
         """
