@@ -468,16 +468,18 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             action_cost = 0
 
             # add yaw_rate cost
-            yaw_speed_cost = 0 * abs(action[-1]) / self.dynamic_model.yaw_rate_max_rad
+            yaw_speed_cost = 0.1 * abs(action[-1]) / self.dynamic_model.yaw_rate_max_rad
 
             if self.dynamic_model.navigation_3d:
-                v_z_cost = 0 * abs(action[1]) / self.dynamic_model.v_z_max
-                action_cost += v_z_cost
+                # add action and z error cost
+                v_z_cost = 0.1 * abs(action[1]) / self.dynamic_model.v_z_max
+                z_err_cost = 0.2 * abs(self.dynamic_model.state_raw[1]) / self.dynamic_model.max_vertical_difference
+                action_cost += v_z_cost + z_err_cost
             
             action_cost += yaw_speed_cost
             
             yaw_error = self.dynamic_model.state_raw[2]
-            yaw_error_cost = 0.05 * abs(yaw_error/180)
+            yaw_error_cost = 0.1 * abs(yaw_error / 180)
 
             reward = reward_distance - reward_obs - action_cost - yaw_error_cost
         else:

@@ -17,7 +17,7 @@ def get_parser():
 
 def main():
     # set config
-    config_file = 'configs/config_new.ini'
+    config_file = 'configs/config_NH_SimpleMR_3D.ini'
     
     # 1. Create the qt thread
     app = QtWidgets.QApplication(sys.argv)

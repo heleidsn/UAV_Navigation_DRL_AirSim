@@ -9,26 +9,70 @@ import torchvision.models as pre_models
 import numpy as np
 
 '''
-Provide 3 types of network
-1. CNN_GAP
+Here we provide 5 feature extractor networks
+
+1. No_CNN
+    No CNN layers
+    Only maxpooling layer to generate 25 features
+    
+2. CNN_GAP
     3 layers of CNN 
     finished by AvgPool2d
     1*8 -> 8*16 -> 16*25
-2. No_CNN
-    No CNN layers
-    Only maxpooling layer to generate 25 features
 
 3. CNN_GAP_BN
     3 layers of CNN with BN for each CNN layer
     finished by AvgPool2d
+    
 4. CNN_FC
     3 layers of CNN 
     finished by Flatten
     FC is used to get CNN features (960 100 25)
+    
 5. CNN_MobileNet
-    Using pretrained MobileNet as feature generator
+    Using a pre-trained MobileNet as feature generator
     finished by Flatten (576 -> 25)
 '''
+class No_CNN(BaseFeaturesExtractor):
+    """
+    :param observation_space: (gym.Space)
+    :param features_dim: (int) Number of features extracted.
+        This corresponds to the number of unit for the last layer.
+    """
+
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=4):
+        super(No_CNN, self).__init__(observation_space, features_dim)
+        # We assume CxHxW images (channels first)
+        # Re-ordering will be done by pre-preprocessing or wrapper
+        # Can use model.actor.features_extractor.feature_all to print all features
+
+        # set CNN and state feature num
+        assert state_feature_dim > 0
+        self.feature_num_state = state_feature_dim
+        self.feature_all = None
+
+        # input size 80*100
+        # divided by 5
+        self.cnn = nn.Sequential(
+            nn.MaxPool2d(kernel_size=(16, 20)),
+            nn.Flatten()
+        )
+
+    def forward(self, observations: th.Tensor) -> th.Tensor:
+        depth_img = observations[:, 0:1, :, :]
+
+        cnn_feature = self.cnn(depth_img)  # [1, 25, 1, 1]
+
+        state_feature = observations[:, 1, 0, 0:self.feature_num_state]
+        # transfer state feature from 0~1 to -1~1
+        # state_feature = state_feature*2 - 1
+        # print(state_feature.size(), cnn_feature.size())
+        x = th.cat((cnn_feature, state_feature), dim=1)
+        # print(x)
+        self.feature_all = x  # use  to update feature before FC
+        
+        return x
+    
 
 class CNN_GAP(BaseFeaturesExtractor):
     """
@@ -174,47 +218,6 @@ class CNN_GAP_BN(BaseFeaturesExtractor):
         
         return x
 
-
-class No_CNN(BaseFeaturesExtractor):
-    """
-    :param observation_space: (gym.Space)
-    :param features_dim: (int) Number of features extracted.
-        This corresponds to the number of unit for the last layer.
-    """
-
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=4):
-        super(No_CNN, self).__init__(observation_space, features_dim)
-        # We assume CxHxW images (channels first)
-        # Re-ordering will be done by pre-preprocessing or wrapper
-        # Can use model.actor.features_extractor.feature_all to print all features
-
-        # set CNN and state feature num
-        assert state_feature_dim > 0
-        self.feature_num_state = state_feature_dim
-        self.feature_all = None
-
-        # input size 80*100
-        # divided by 5
-        self.cnn = nn.Sequential(
-            nn.MaxPool2d(kernel_size=(16, 20)),
-            nn.Flatten()
-        )
-
-    def forward(self, observations: th.Tensor) -> th.Tensor:
-        depth_img = observations[:, 0:1, :, :]
-
-        cnn_feature = self.cnn(depth_img)  # [1, 25, 1, 1]
-
-        state_feature = observations[:, 1, 0, 0:self.feature_num_state]
-        # transfer state feature from 0~1 to -1~1
-        # state_feature = state_feature*2 - 1
-        # print(state_feature.size(), cnn_feature.size())
-        x = th.cat((cnn_feature, state_feature), dim=1)
-        # print(x)
-        self.feature_all = x  # use  to update feature before FC
-        
-        return x
-    
     
 class CustomNoCNN(BaseFeaturesExtractor):
     """
