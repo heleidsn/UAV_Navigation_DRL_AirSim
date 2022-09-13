@@ -452,7 +452,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                                                 lgmd_out_1d_clip[i])
 
         # get state feature 0-1
-        state_feature = self.dynamic_model._get_state_feature()
+        state_feature = self.dynamic_model._get_state_feature() / 255
 
         obs = np.append(self.lgmd_out_1d_filtered,
                         state_feature).reshape((1, self.obs_num))
@@ -484,9 +484,9 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                 v_z_cost = 0.1 * ((abs(action[1]) / self.dynamic_model.v_z_max)**2)
                 z_err_cost = 0.05 * ((abs(self.dynamic_model.state_raw[1]) / self.dynamic_model.max_vertical_difference)**2)
                 action_cost += (v_z_cost + z_err_cost)
-            
+
             action_cost += yaw_speed_cost
-            
+
             yaw_error = self.dynamic_model.state_raw[2]
             yaw_error_cost = 0.1 * abs(yaw_error / 180)
 
@@ -547,28 +547,25 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         reward_outside = 0
 
         if not done:
-            distance_now = self.get_distance_to_goal_3d()
-            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 5
-            self.previous_distance_from_des_point = distance_now
-
-            state_cost = 0
+            # 只有action cost和obs cost
+            # 由于没有速度控制，所以前面那个也取消了
             action_cost = 0
             obs_cost = 0
 
-            # state_cost = 0.0 * abs(self.dynamic_model.roll) / self.dynamic_model.roll_max
-            # distance_coeff = np.clip([1 - distance_now / self.dynamic_model.goal_distance], 0, 1)[0]
-            # relative_yaw_cost = (distance_coeff ** 2) * (self.dynamic_model.state_norm[1]**2)
             relative_yaw_cost = abs(self.dynamic_model.state_norm[0])
-            action_cost = abs(action[0]) /self.dynamic_model.roll_rate_max
-            
-            obs_punish_dist = 15
-            if self.min_distance_to_obstacles < obs_punish_dist:
-                obs_cost = 1 - (self.min_distance_to_obstacles - self.crash_distance) / (obs_punish_dist - self.crash_distance)
+            action_cost = abs(action[0]) / self.dynamic_model.roll_rate_max
+
+            obs_punish_distance = 15
+            if self.min_distance_to_obstacles < obs_punish_distance:
+                obs_cost = 1 - (self.min_distance_to_obstacles -
+                                self.crash_distance) / (obs_punish_distance -
+                                                        self.crash_distance)
                 obs_cost = 0.5 * obs_cost ** 2
             reward = - (2 * relative_yaw_cost + 0.5 * action_cost)
         else:
             if self.is_in_desired_pose():
-                reward = reward_reach * (1 - abs(self.dynamic_model.state_norm[0]))
+                reward = reward_reach * (1 -
+                                         abs(self.dynamic_model.state_norm[0]))
                 # reward = reward_reach
             if self.is_crashed():
                 reward = reward_crash
