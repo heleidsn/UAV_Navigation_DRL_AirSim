@@ -552,7 +552,8 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             action_cost = 0
             obs_cost = 0
 
-            relative_yaw_cost = abs(self.dynamic_model.state_norm[0])
+            relative_yaw_cost = abs(
+                (self.dynamic_model.state_norm[0]/255-0.5) * 2)
             action_cost = abs(action[0]) / self.dynamic_model.roll_rate_max
 
             obs_punish_distance = 15
@@ -561,7 +562,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                                 self.crash_distance) / (obs_punish_distance -
                                                         self.crash_distance)
                 obs_cost = 0.5 * obs_cost ** 2
-            reward = - (2 * relative_yaw_cost + 0.5 * action_cost)
+            reward = - (2 * relative_yaw_cost + 0.5 * action_cost + obs_cost)
         else:
             if self.is_in_desired_pose():
                 reward = reward_reach * (1 -
