@@ -25,11 +25,11 @@ def get_parser():
         '-c',
         '--config',
         help='config file name in configs folder, such as config_default',
-        default='config_default')
+        default='config_Simple_fixedwing_depth')
     parser.add_argument('-n',
                         '--note',
                         help='training objective',
-                        default='test')
+                        default='depth_upper_split_5')
 
     return parser
 
@@ -69,7 +69,7 @@ class TrainingThread(QtCore.QThread):
             wandb.init(
                 project=self.project_name,
                 notes="",
-                name='',
+                name='M1-SAC-no_L2',
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 save_code=True,  # optional
             )
@@ -108,7 +108,7 @@ class TrainingThread(QtCore.QThread):
         # feature extraction network
         if policy_name == 'lgmd_split':
             policy_base = 'MlpPolicy'
-            policy_kwargs = dict(activation_fn=th.nn.Tanh)
+            policy_kwargs = dict(activation_fn=th.nn.ReLU)
         else:
             policy_base = 'CnnPolicy'
             if policy_name == 'CNN_FC':
@@ -160,6 +160,7 @@ class TrainingThread(QtCore.QThread):
                 action_noise=action_noise,
                 policy_kwargs=policy_kwargs,
                 buffer_size=self.cfg.getint('SAC', 'buffer_size'),
+                # gamma=0.9,
                 learning_starts=self.cfg.getint('SAC', 'learning_starts'),
                 learning_rate=self.cfg.getfloat('SAC', 'learning_rate'),
                 batch_size=self.cfg.getint('SAC', 'batch_size'),
@@ -207,18 +208,20 @@ class TrainingThread(QtCore.QThread):
         self.env.data_path = data_path
 
         if self.cfg.getboolean('options', 'use_wandb'):
-            if algo == 'TD3' or algo == 'SAC':
-                wandb.watch(model.actor, log_freq=100)  # log gradients
-            elif algo == 'PPO':
-                wandb.watch(model.policy, log_freq=100, log="all")
+            # if algo == 'TD3' or algo == 'SAC':
+            #     wandb.watch(model.actor, log_freq=100, log="all")  # log gradients
+            # elif algo == 'PPO':
+            #     wandb.watch(model.policy, log_freq=100, log="all")
             model.learn(
                 total_timesteps,
+                log_interval=1,
                 callback=WandbCallback(
                     model_save_freq=10000,
-                    # gradient_save_freq=100,
+                    gradient_save_freq=100,
                     model_save_path=model_path,
                     verbose=2,
-                ))
+                )
+            )
         else:
             model.learn(total_timesteps)
 
