@@ -173,7 +173,7 @@ class FixedwingDynamicsSimple():
         pose.position.x_val = self.x
         pose.position.y_val = self.y
         pose.position.z_val = - self.z
-        pose.orientation = airsim.to_quaternion(self.pitch, 0, self.yaw)
+        pose.orientation = airsim.to_quaternion(self.pitch, self.roll, self.yaw)
         self.client.simSetVehiclePose(pose, False)
 
         return 0

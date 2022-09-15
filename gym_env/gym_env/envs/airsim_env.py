@@ -15,7 +15,8 @@ from .dynamics.multirotor_airsim import MultirotorDynamicsAirsim
 from .dynamics.fixedwing_simple import FixedwingDynamicsSimple
 
 # from .lgmd.lgmd import LGMD
-from .lgmd.lgmd_new import LGMD
+# from .lgmd.lgmd_new import LGMD
+from .lgmd.lgmd_threshold import LGMD
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal
@@ -161,6 +162,11 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         # add observation space setting for LGMD split
         if self.perception_type == 'split' and cfg.has_section('lgmd'):
+            if cfg.get('lgmd', 'lgmd_perception') == 'lgmd':
+                print('Using LGMD split perception')
+                self.lgmd = LGMD()
+            else:
+                print('Using depth split perception')
             split_row = cfg.getint('lgmd', 'split_row_num')
             split_col = cfg.getint('lgmd', 'split_col_num')
             self.lgmd_split_num = split_row * split_col
@@ -410,24 +416,24 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             for i in range(self.lgmd_split_num):
                 lgmd_out_1d.append(np.min(lgmd_out_array[i]))
 
-            lgmd_out_1d_clip = (
+            lgmd_out_1d_clip = 1 - (
                 np.clip(lgmd_out_1d, 0, self.max_depth_meters) /
                 self.max_depth_meters
                 )
         elif self.cfg.get('lgmd', 'lgmd_perception') == 'lgmd':
             depth_meter, img_gray = self.get_depth_rgb_image()
             self.min_distance_to_obstacles = depth_meter.min()
-            img_moment, _ = self.lgmd.get_image_moment(img_gray)
+            img_moment = self.lgmd.get_moment_norm(img_gray)
             self.lgmd.update(img_moment)
             lgmd_s_layer = self.lgmd.s_layer
 
-            # imgs_show = np.hstack([img_moment, lgmd_s_layer])
-            # size = (88, 60)
-            # scale = 4
-            # cv2.namedWindow('lgmd', cv2.WINDOW_NORMAL)
-            # cv2.resizeWindow('lgmd', size[0]*scale*2, size[1]*scale)
-            # cv2.imshow('lgmd', imgs_show)
-            # cv2.waitKey(1)
+            imgs_show = np.hstack([img_moment, lgmd_s_layer, self.lgmd.s_layer_activated])
+            size = (100, 80)
+            scale = 4
+            cv2.namedWindow('lgmd', cv2.WINDOW_NORMAL)
+            cv2.resizeWindow('lgmd', size[0]*scale*3, size[1]*scale)
+            cv2.imshow('lgmd', imgs_show)
+            cv2.waitKey(1)
 
             lgmd_out_array = np.array_split(lgmd_s_layer,
                                             self.lgmd_split_num, axis=1)
@@ -454,7 +460,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         # get state feature 0-1
         state_feature = self.dynamic_model._get_state_feature() / 255
 
-        obs = np.append(self.lgmd_out_1d_filtered,
+        obs = np.append(lgmd_out_1d_clip,
                         state_feature).reshape((1, self.obs_num))
 
         self.feature_all = obs
@@ -547,26 +553,38 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         reward_outside = 0
 
         if not done:
+            distance_now = self.get_distance_to_goal_3d()
+            reward_distance = (self.previous_distance_from_des_point - distance_now) / self.dynamic_model.goal_distance * 300  # normalized to 100 according to goal_distance
+            self.previous_distance_from_des_point = distance_now
+
             # 只有action cost和obs cost
             # 由于没有速度控制，所以前面那个也取消了
-            action_cost = 0
-            obs_cost = 0
+            # action_cost = 0
+            # obs_cost = 0
 
-            relative_yaw_cost = abs(
-                (self.dynamic_model.state_norm[0]/255-0.5) * 2)
+            # relative_yaw_cost = abs(
+            #     (self.dynamic_model.state_norm[0]/255-0.5) * 2)
+            # action_cost = abs(action[0]) / self.dynamic_model.roll_rate_max
+
+            # obs_punish_distance = 15
+            # if self.min_distance_to_obstacles < obs_punish_distance:
+            #     obs_cost = 1 - (self.min_distance_to_obstacles -
+            #                     self.crash_distance) / (obs_punish_distance -
+            #                                             self.crash_distance)
+            #     obs_cost = 0.5 * obs_cost ** 2
+            # reward = reward_distance - (2 * relative_yaw_cost + 0.5 * action_cost + obs_cost)
+
             action_cost = abs(action[0]) / self.dynamic_model.roll_rate_max
 
-            obs_punish_distance = 15
-            if self.min_distance_to_obstacles < obs_punish_distance:
-                obs_cost = 1 - (self.min_distance_to_obstacles -
-                                self.crash_distance) / (obs_punish_distance -
-                                                        self.crash_distance)
-                obs_cost = 0.5 * obs_cost ** 2
-            reward = - (2 * relative_yaw_cost + 0.5 * action_cost + obs_cost)
+            yaw_error_deg = self.dynamic_model.state_raw[2]
+            yaw_error_cost = 0.1 * abs(yaw_error_deg / 180)
+
+            reward = reward_distance - action_cost - yaw_error_cost
         else:
             if self.is_in_desired_pose():
+                yaw_error_deg = self.dynamic_model.state_raw[2]
                 reward = reward_reach * (1 -
-                                         abs(self.dynamic_model.state_norm[0]))
+                                         abs(yaw_error_deg / 180))
                 # reward = reward_reach
             if self.is_crashed():
                 reward = reward_crash
