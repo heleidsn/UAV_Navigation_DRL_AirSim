@@ -11,9 +11,9 @@ This is a new repo used for training UAV navigation (local path planning) policy
 
 ## ChangeLog
 
-- 2020-03-11
+- 2022-03-11
   - Add wandb support
-- 2020-03-10
+- 2022-03-10
   - Remove [gym_airsim_multirotor](https://github.com/heleidsn/gym_airsim_multirotor) submodule
   - Add gym_env as envrionment, include MultirotorSimple, Multirotor and FixedwingSimple dynamics
   - Add train with plot
@@ -85,15 +85,14 @@ Now we provide 3 training envrionment and 3 dynamics.
     <img src="resources/env_maps/city_400.png" width = "350" height = "200"/>
     <img src="resources/env_maps/city_400_1.png" width = "350" height = "200"/>
   </p>
-
 * Random obstacles
+
   * Some envs with random obstacles. Contributed by [Chris-cch](https://github.com/Chris-cch). You can download [here](https://mailnwpueducn-my.sharepoint.com/personal/chenchanghao_mail_nwpu_edu_cn/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fchenchanghao%5Fmail%5Fnwpu%5Fedu%5Fcn%2FDocuments%2Fnew%5Fenv&ga=1).
 
   <p align="center">
     <img src="resources/env_maps/random_1.png" width = "350" height = "200"/>
     <img src="resources/env_maps/random_2.png" width = "350" height = "200"/>
   </p>
-
 * Other Airsim build in envrionment (AirSimNH and CityEnviron):
 
   <p align="center">
@@ -133,7 +132,7 @@ Training result using TD3 with no_cnn policy![img](resources/figures/training_re
 
 ## Settings
 
-Note: 
+Note:
 
 To speed up image collection, you can set `ViewMode `to `NoDisplay`.
 
