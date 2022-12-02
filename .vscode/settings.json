@@ -6,5 +6,9 @@
     ],
     "python.analysis.extraPaths": [
         "./stable-baselines3"
-    ]
+    ],
+    "cSpell.ignoreWords": [
+        "cuda"
+    ],
+    "python.formatting.provider": "autopep8"
 }
