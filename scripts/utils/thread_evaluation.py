@@ -1,43 +1,70 @@
-from cmath import inf
-import datetime
-import os, sys
+from PyQt5 import QtCore
+from configparser import ConfigParser
+from stable_baselines3 import TD3, SAC, PPO
+import numpy as np
+import gym_env
+import gym
+import math
+import os
+import sys
+import cv2
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(CURRENT_DIR))
-sys.path.append(r"C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\scripts")
+sys.path.append(
+    r"C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\scripts")
 
-import gym
-import gym_env
-import numpy as np
-from stable_baselines3 import TD3, SAC, PPO
-from stable_baselines3.common.noise import NormalActionNoise
-from torch.utils.tensorboard import SummaryWriter
-# import wandb
 
-from utils.custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet
-from configparser import ConfigParser
+def rule_based_policy(obs):
+    '''
+    custom linear policy
+    used for LGMD compare
+    '''
+    action = 0
+    # 将obs从1~-1转换成0~1
+    obs = np.squeeze(obs, axis=0)
 
-from PyQt5 import QtWidgets, QtCore
+    for i in range(5):
+        obs[i] = obs[i]/2 + 0.5
+
+    # obs_weight_depth = np.array([1.0, 3.0, 5.0, -3.0, -1.0, 3.0])
+    obs_weight = np.array([1.0, 3.0, 3.0, -3.0, -1.0, 3.0])
+    action = obs * obs_weight
+
+    action_sum = np.sum(action)
+
+    if action_sum > math.radians(40):
+        action_sum = math.radians(40)
+    elif action_sum < -math.radians(40):
+        action_sum = -math.radians(40)
+
+    return np.array([action_sum])
+
 
 class EvaluateThread(QtCore.QThread):
     # signals
-    def __init__(self, config, model_file, total_eval_episodes):
+    def __init__(self, eval_path, config, model_file, eval_ep_num):
         super(EvaluateThread, self).__init__()
         print("init training thread")
 
-        # config 
+        # config
         self.cfg = ConfigParser()
         self.cfg.read(config)
 
         self.env = gym.make('airsim-env-v0')
         self.env.set_config(self.cfg)
 
+        self.eval_path = eval_path
         self.model_file = model_file
-        self.total_eval_episodes = total_eval_episodes
+        self.eval_ep_num = eval_ep_num
 
     def terminate(self):
         print('Evaluation terminated')
 
     def run(self):
+        # self.run_rule_policy()
+        self.run_drl_model()
+
+    def run_drl_model(self):
         print('start evaluation')
         algo = self.cfg.get('options', 'algo')
         if algo == 'TD3':
@@ -58,20 +85,25 @@ class EvaluateThread(QtCore.QThread):
         traj_list_all = []
         action_list_all = []
         state_list_all = []
-        
+        obs_list_all = []
+
         traj_list = []
         action_list = []
         state_raw_list = []
         step_num_list = []
+        obs_list = []
+        cv2.waitKey()
 
-        while episode_num < self.total_eval_episodes:
+        while episode_num < self.eval_ep_num:
             unscaled_action, _ = model.predict(obs, deterministic=True)
             time_step += 1
+
             new_obs, reward, done, info, = self.env.step(unscaled_action)
             pose = self.env.dynamic_model.get_position()
             traj_list.append(pose)
             action_list.append(unscaled_action)
             state_raw_list.append(self.env.dynamic_model.state_raw)
+            obs_list.append(obs)
 
             obs = new_obs
             reward_sum[-1] += reward
@@ -79,7 +111,8 @@ class EvaluateThread(QtCore.QThread):
             if done:
                 episode_num += 1
                 maybe_is_success = info.get('is_success')
-                print('episode: ', episode_num, ' reward:', reward_sum[-1], 'success:', maybe_is_success)
+                print('episode: ', episode_num, ' reward:', reward_sum[-1],
+                      'success:', maybe_is_success)
                 episode_successes.append(float(maybe_is_success))
                 reward_sum = np.append(reward_sum, .0)
                 obs = self.env.reset()
@@ -97,27 +130,62 @@ class EvaluateThread(QtCore.QThread):
                 traj_list_all.append(traj_list)
                 action_list_all.append(action_list)
                 state_list_all.append(state_raw_list)
+                obs_list_all.append(obs_list)
                 traj_list = []
                 action_list = []
                 state_raw_list = []
+                obs_list = []
 
-        np.save('traj_eval_{}'.format(self.total_eval_episodes), traj_list_all)
-        np.save('action_eval_{}'.format(self.total_eval_episodes), action_list_all)
-        np.save('state_eval_{}'.format(self.total_eval_episodes), state_list_all)
-        print('Average episode reward: ', reward_sum[:self.total_eval_episodes].mean(), 'Success rate:', np.mean(episode_successes), 'average step num: ', np.mean(step_num_list))
-        
+        # save trajectory data in eval folder
+        eval_folder = self.eval_path + '/eval_{}'.format(self.eval_ep_num)
+        os.makedirs(eval_folder, exist_ok=True)
+        np.save(eval_folder + '/traj_eval',
+                np.array(traj_list_all, dtype=object))
+        np.save(eval_folder + '/action_eval',
+                np.array(action_list_all, dtype=object))
+        np.save(eval_folder + '/state_eval',
+                np.array(state_list_all, dtype=object))
+        np.save(eval_folder + '/obs_eval',
+                np.array(obs_list_all, dtype=object))
+
+        print('Average episode reward: ', reward_sum[:self.eval_ep_num].mean(),
+              'Success rate:', np.mean(episode_successes),
+              'average step num: ', np.mean(step_num_list))
+
+    def run_rule_policy(self):
+        obs = self.env.reset()
+        episode_num = 0
+        time_step = 0
+        reward_sum = np.array([.0])
+        while episode_num < self.eval_ep_num:
+            unscaled_action = rule_based_policy(obs)
+            time_step += 1
+            new_obs, reward, done, info, = self.env.step(unscaled_action)
+            reward_sum[-1] += reward
+
+            obs = new_obs
+            if done:
+                episode_num += 1
+                maybe_is_success = info.get('is_success')
+                print('episode: ', episode_num, ' reward:', reward_sum[-1],
+                      'success:', maybe_is_success)
+                reward_sum = np.append(reward_sum, .0)
+                obs = self.env.reset()
+
+
 def main():
-    eval_path = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\Tree_200_SimpleFixedwing_Flapping_2D\2022_04_18_19_24_No_CNN_TD3'
+    eval_path = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\NH_center\2022_09_20_13_53_SimpleMultirotor_CNN_GAP_SAC'
     config_file = eval_path + '/config/config.ini'
-    model_file = eval_path + '/models/model_130000.zip'
-    
-    total_eval_episodes = 50
-    evaluate_thread = EvaluateThread(config_file, model_file, total_eval_episodes)
+    model_file = eval_path + '/models/model_sb3.zip'
+
+    eval_ep_num = 50
+    evaluate_thread = EvaluateThread(eval_path, config_file, model_file,
+                                     eval_ep_num)
     evaluate_thread.run()
+
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
         print('system exit')
-    

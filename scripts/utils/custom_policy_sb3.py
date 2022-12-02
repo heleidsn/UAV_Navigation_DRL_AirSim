@@ -1,4 +1,5 @@
 
+from tracemalloc import start
 import gym
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch.nn as nn
@@ -110,7 +111,8 @@ class CNN_GAP(BaseFeaturesExtractor):
         )
 
         self.conv3 = nn.Sequential(
-            nn.Conv2d(16, self.feature_num_cnn, kernel_size=3, stride=1, padding='same'),
+            nn.Conv2d(16, self.feature_num_cnn, kernel_size=3,
+                      stride=1, padding='same'),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 10, 12]
         )
@@ -133,7 +135,7 @@ class CNN_GAP(BaseFeaturesExtractor):
         # self.conv3[0].bias.data.fill_(0)
         # self.soft_max_layer = nn.Softmax(dim=1)
         # self.batch_norm_layer = nn.BatchNorm1d(16, affine=False)
-        
+
         # self.linear = self.cnn
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
@@ -145,8 +147,8 @@ class CNN_GAP(BaseFeaturesExtractor):
         self.gap_layer_out = self.gap_layer(self.layer_3_out)
 
         cnn_feature = self.gap_layer_out  # [1, 8, 1, 1]
-        cnn_feature = cnn_feature.squeeze(dim=3) # [1, 8, 1]
-        cnn_feature = cnn_feature.squeeze(dim=2) # [1, 8]
+        cnn_feature = cnn_feature.squeeze(dim=3)  # [1, 8, 1]
+        cnn_feature = cnn_feature.squeeze(dim=2)  # [1, 8]
         # cnn_feature = th.clamp(cnn_feature,-1,2)
         # cnn_feature = self.batch_layer(cnn_feature)
 
@@ -156,7 +158,7 @@ class CNN_GAP(BaseFeaturesExtractor):
 
         x = th.cat((cnn_feature, state_feature), dim=1)
         self.feature_all = x  # use  to update feature before FC
-        
+
         return x
 
 
@@ -192,7 +194,8 @@ class CNN_GAP_BN(BaseFeaturesExtractor):
         )
 
         self.conv3 = nn.Sequential(
-            nn.Conv2d(16, self.feature_num_cnn, kernel_size=3, stride=1, padding='same'),
+            nn.Conv2d(16, self.feature_num_cnn, kernel_size=3,
+                      stride=1, padding='same'),
             nn.BatchNorm2d(self.feature_num_cnn),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [1, 8, 10, 12]
@@ -210,8 +213,8 @@ class CNN_GAP_BN(BaseFeaturesExtractor):
         self.gap_layer_out = self.gap_layer(self.layer_3_out)
 
         cnn_feature = self.gap_layer_out  # [1, 8, 1, 1]
-        cnn_feature = cnn_feature.squeeze(dim=3) # [1, 8, 1]
-        cnn_feature = cnn_feature.squeeze(dim=2) # [1, 8]
+        cnn_feature = cnn_feature.squeeze(dim=3)  # [1, 8, 1]
+        cnn_feature = cnn_feature.squeeze(dim=2)  # [1, 8]
         # cnn_feature = th.clamp(cnn_feature,-1,2)
         # cnn_feature = self.batch_layer(cnn_feature)
 
@@ -221,7 +224,7 @@ class CNN_GAP_BN(BaseFeaturesExtractor):
 
         x = th.cat((cnn_feature, state_feature), dim=1)
         self.feature_all = x  # use  to update feature before FC
-        
+
         return x
 
 
@@ -262,7 +265,7 @@ class CustomNoCNN(BaseFeaturesExtractor):
         x = th.cat((cnn_feature, state_feature), dim=1)
         # print(x)
         self.feature_all = x  # use  to update feature before FC
-        
+
         return x
 
 
@@ -283,7 +286,7 @@ class CNN_FC(BaseFeaturesExtractor):
         self.feature_all = None
 
         # Input image: 80*100
-        # Output: 16 CNN features + n state features 
+        # Output: 16 CNN features + n state features
         self.cnn = nn.Sequential(
             nn.Conv2d(1, 8, kernel_size=3, stride=1, padding=1),
             # nn.BatchNorm2d(8),
@@ -308,7 +311,8 @@ class CNN_FC(BaseFeaturesExtractor):
         # Compute shape by doing one forward pass
         with th.no_grad():
             n_flatten = self.cnn(
-                th.as_tensor(observation_space.sample()[None][:, 0:1, :, :]).float()
+                th.as_tensor(observation_space.sample()[
+                             None][:, 0:1, :, :]).float()
             ).shape[1]
 
         self.linear = nn.Sequential(
@@ -333,7 +337,7 @@ class CNN_FC(BaseFeaturesExtractor):
         x = th.cat((cnn_feature, state_feature), dim=1)
         self.feature_all = x  # use  to update feature before FC
         # print(x)
-        
+
         return x
 
 
@@ -341,6 +345,7 @@ class CNN_MobileNet(BaseFeaturesExtractor):
     '''
     Using part of mobile_net_v3_small to generate features from depth image
     '''
+
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256, state_feature_dim=0):
         super(CNN_MobileNet, self).__init__(observation_space, features_dim)
 
@@ -349,14 +354,15 @@ class CNN_MobileNet(BaseFeaturesExtractor):
         self.feature_num_cnn = features_dim - state_feature_dim
         self.feature_all = None
 
-        self.mobilenet_v3_small = pre_models.mobilenet_v3_small(pretrained=True)
+        self.mobilenet_v3_small = pre_models.mobilenet_v3_small(
+            pretrained=True)
 
         self.part = self.mobilenet_v3_small.features
 
         # freeze part parameters
         for param in self.part.parameters():
             param.requires_grad = False
-        
+
         self.gap_layer = nn.AdaptiveAvgPool2d(output_size=1)
         self.linear = nn.Sequential(
             nn.Linear(576, 256),
@@ -374,28 +380,32 @@ class CNN_MobileNet(BaseFeaturesExtractor):
             # nn.BatchNorm1d(32),
             # nn.Dropout(0.25)
         )
-        
+
     def forward(self, observations: th.Tensor) -> th.Tensor:
         depth_img = observations[:, 0:1, :, :]
 
         # change input image to (None, 3, 100, 80)
-        depth_img_stack = depth_img.repeat(1, 3, 1, 1)  # notion: this repeat is used for tensor  # (1, 3, 80 ,100)
+        # notion: this repeat is used for tensor  # (1, 3, 80 ,100)
+        depth_img_stack = depth_img.repeat(1, 3, 1, 1)
 
-        self.last_cnn_output = self.part(depth_img_stack)        # [1, 576, 3, 4]
-        self.gap_layer_out = cnn_feature = self.gap_layer(self.last_cnn_output) # [1, 576, 1, 1]
+        self.last_cnn_output = self.part(
+            depth_img_stack)        # [1, 576, 3, 4]
+        self.gap_layer_out = cnn_feature = self.gap_layer(
+            self.last_cnn_output)  # [1, 576, 1, 1]
 
-        cnn_feature = cnn_feature.squeeze(dim=3) # [1, 576, 1]
-        cnn_feature = cnn_feature.squeeze(dim=2) # [1, 576]
+        cnn_feature = cnn_feature.squeeze(dim=3)  # [1, 576, 1]
+        cnn_feature = cnn_feature.squeeze(dim=2)  # [1, 576]
         cnn_feature = self.linear_small(cnn_feature)  # [1, 32]
 
-        state_feature = observations[:, 1, 0, 0:self.feature_num_state] # [1, 2]
+        state_feature = observations[:, 1, 0,
+                                     0:self.feature_num_state]  # [1, 2]
         # transfer state feature from 0~1 to -1~1
         # state_feature = state_feature*2 - 1
 
         x = th.cat((cnn_feature, state_feature), dim=1)
         self.feature_all = x  # use  to update feature before FC
         # print(x)
-        
+
         return x
 
 
@@ -416,23 +426,34 @@ class CNN_GAP_new(BaseFeaturesExtractor):
         self.feature_all = None
 
         # input size (100, 80)
-        self.conv1 = nn.Conv2d(1, 8, 5)
-        self.conv2 = nn.Conv2d(8, 8, 3)
-        self.conv3 = nn.Conv2d(8, 16, 3)
-        self.pool = nn.MaxPool2d(2, 2)
+        # input size 80 60
+        self.conv1 = nn.Conv2d(1, 8, 5, 2)  # 28,38
+        self.conv2 = nn.Conv2d(8, 8, 5, 2)  # 12,17
+        self.conv3 = nn.Conv2d(8, 8, 3, 2)  # 5, 8
+        self.pool = nn.MaxPool2d(2, 3)
         self.gap_layer = nn.AvgPool2d(kernel_size=(8, 10), stride=1)
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
-        depth_img = observations[:, 0:1, :, :]
+        depth_img = observations[:, 0:1, :, :]  # 0-1 0->20m 1->0m
+        # print(th.min(depth_img), th.max(depth_img))
+        # norm image to (-1, 1)
+        depth_img_norm = (depth_img - 0.5) * 2
+        # print(th.min(depth_img_norm), th.max(depth_img_norm))
 
-        self.layer_1_out = self.pool(F.relu(self.conv1(depth_img)))         # 1, 8, 38, 48
-        self.layer_2_out = self.pool(F.relu(self.conv2(self.layer_1_out)))  # 1, 8, 18, 23
-        self.layer_3_out = self.pool(F.relu(self.conv3(self.layer_2_out)))  # 1, 16, 8, 10
-        self.gap_layer_out = self.gap_layer(self.layer_3_out)               # 1, 16, 1, 1
+        # 1, 8, 38, 48  1,8,28,38
+        self.layer_1_out = F.relu(self.conv1(depth_img_norm))
+        # 1, 8, 18, 23  1,8,12,17
+        self.layer_2_out = F.relu(self.conv2(self.layer_1_out))
+        self.layer_3_out = F.relu(self.conv3(
+            self.layer_2_out))  # 1, 16, 8, 10  1,8,5,8
+        self.layer_small = self.pool(self.layer_3_out)  # 1,8,2,3
+        # self.gap_layer_out = self.gap_layer(self.layer_3_out)               # 1, 16, 1, 1
+        self.flatten = th.flatten(self.layer_small, start_dim=1)
+        # self.flatten = self.flatten.unsqueeze(0)
 
-        cnn_feature = self.gap_layer_out  # [1, 16, 1, 1]
-        cnn_feature = cnn_feature.squeeze(dim=3)  # [1, 16, 1]
-        cnn_feature = cnn_feature.squeeze(dim=2)  # [1, 16]
+        # cnn_feature = self.gap_layer_out  # [1, 16, 1, 1]
+        # cnn_feature = cnn_feature.squeeze(dim=3)  # [1, 16, 1]
+        # cnn_feature = cnn_feature.squeeze(dim=2)  # [1, 16]
         # cnn_feature = th.clamp(cnn_feature, -1, 2)
         # cnn_feature = self.batch_layer(cnn_feature)
 
@@ -440,7 +461,7 @@ class CNN_GAP_new(BaseFeaturesExtractor):
         # transfer state feature from 0~1 to -1~1
         # state_feature = state_feature*2 - 1
 
-        x = th.cat((cnn_feature, state_feature), dim=1)
+        x = th.cat((self.flatten, state_feature), dim=1)
         self.feature_all = x  # use  to update feature before FC
-        
+
         return x

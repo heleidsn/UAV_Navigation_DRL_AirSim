@@ -1,7 +1,7 @@
 '''
 @Author: Lei He
 @Date: 2020-06-01 22:52:40
-LastEditTime: 2022-06-20 11:25:36
+LastEditTime: 2022-12-02 17:30:59
 @Description: 
 @Github: https://github.com/heleidsn
 '''
@@ -26,10 +26,11 @@ class TrainingUi(QWidget):
 
     Args:
         QWidget (_type_): _description_
-    """    
+    """
+
     def __init__(self, config):
         super(TrainingUi, self).__init__()
-        # config 
+        # config
         self.cfg = ConfigParser()
         self.cfg.read(config)
 
@@ -49,7 +50,7 @@ class TrainingUi(QWidget):
         pg.setConfigOptions(leftButtonPan=False)
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
-        pg.setConfigOption('imageAxisOrder', 'row-major') # best performance
+        pg.setConfigOption('imageAxisOrder', 'row-major')  # best performance
 
         self.max_len = 100
         self.ptr = -self.max_len
@@ -69,11 +70,11 @@ class TrainingUi(QWidget):
         right_widget = QWidget()
         vlayout = QVBoxLayout()
         vlayout.addWidget(reward_plot_gb)
-        
+
         if self.cfg.has_option('options', 'perception'):
             if self.cfg.get('options', 'perception') == 'lgmd':
                 vlayout.addWidget(lgmd_plot_gb)
-        
+
         vlayout.addWidget(traj_plot_gb)
         right_widget.setLayout(vlayout)
 
@@ -105,7 +106,7 @@ class TrainingUi(QWidget):
             For each action, cmd and real state should be ploted
             Action: 
                 v_xy, v_z, yaw_rate
-        """        
+        """
         actionPlotGroupBox = QGroupBox('Action (multirotor)')
         self.v_xy_cmd_list = np.linspace(0, 0, self.max_len)
         self.v_xy_real_list = np.linspace(0, 0, self.max_len)
@@ -119,20 +120,23 @@ class TrainingUi(QWidget):
         layout = QVBoxLayout()
 
         self.plotWidget_v_xy = pg.PlotWidget(title='v_xy (m/s)')
-        self.plotWidget_v_xy.setYRange(max=self.cfg.getfloat('multirotor', 'v_xy_max'), min=self.cfg.getfloat('multirotor', 'v_xy_min'))
-        self.plotWidget_v_xy.showGrid(x=True,y=True)
+        self.plotWidget_v_xy.setYRange(max=self.cfg.getfloat(
+            'multirotor', 'v_xy_max'), min=self.cfg.getfloat('multirotor', 'v_xy_min'))
+        self.plotWidget_v_xy.showGrid(x=True, y=True)
         self.plot_v_xy = self.plotWidget_v_xy.plot()      # get plot object
         self.plot_v_xy_cmd = self.plotWidget_v_xy.plot()
 
         self.plotWidget_v_z = pg.PlotWidget(title='v_z (m/s)')
-        self.plotWidget_v_z.setYRange(max=self.cfg.getfloat('multirotor', 'v_z_max'), min=-self.cfg.getfloat('multirotor', 'v_z_max'))
-        self.plotWidget_v_z.showGrid(x=True,y=True)
+        self.plotWidget_v_z.setYRange(max=self.cfg.getfloat(
+            'multirotor', 'v_z_max'), min=-self.cfg.getfloat('multirotor', 'v_z_max'))
+        self.plotWidget_v_z.showGrid(x=True, y=True)
         self.plot_v_z = self.plotWidget_v_z.plot()
         self.plot_v_z_cmd = self.plotWidget_v_z.plot()
 
         self.plotWidget_yaw_rate = pg.PlotWidget(title='yaw_rate (deg/s)')
-        self.plotWidget_yaw_rate.setYRange(max=self.cfg.getfloat('multirotor', 'yaw_rate_max_deg'), min=-self.cfg.getfloat('multirotor', 'yaw_rate_max_deg'))
-        self.plotWidget_yaw_rate.showGrid(x=True,y=True)
+        self.plotWidget_yaw_rate.setYRange(max=self.cfg.getfloat(
+            'multirotor', 'yaw_rate_max_deg'), min=-self.cfg.getfloat('multirotor', 'yaw_rate_max_deg'))
+        self.plotWidget_yaw_rate.showGrid(x=True, y=True)
         self.plot_yaw_rate = self.plotWidget_yaw_rate.plot()
         self.plot_yaw_rate_cmd = self.plotWidget_yaw_rate.plot()
 
@@ -151,7 +155,7 @@ class TrainingUi(QWidget):
         action: roll_cmd, pitch_cmd, yaw_cmd, airspeed_cmd
         """
         actionPlotGroupBox = QGroupBox('Real time action and state')
-        
+
         self.v_xy_cmd_list = np.linspace(0, 0, self.max_len)
         self.v_xy_real_list = np.linspace(0, 0, self.max_len)
 
@@ -162,22 +166,24 @@ class TrainingUi(QWidget):
         self.roll_cmd_list = np.linspace(0, 0, self.max_len)
 
         layout = QVBoxLayout()
-        
+
         self.plotWidget_v_xy = pg.PlotWidget(title='v_xy (m/s)')
-        self.plotWidget_v_xy.setYRange(max=self.cfg.getfloat('fixedwing', 'v_xy_max'), min=self.cfg.getfloat('fixedwing', 'v_xy_min'))
-        self.plotWidget_v_xy.showGrid(x=True,y=True)
+        self.plotWidget_v_xy.setYRange(max=self.cfg.getfloat(
+            'fixedwing', 'v_xy_max'), min=self.cfg.getfloat('fixedwing', 'v_xy_min'))
+        self.plotWidget_v_xy.showGrid(x=True, y=True)
         self.plot_v_xy = self.plotWidget_v_xy.plot()      # get plot object
         self.plot_v_xy_cmd = self.plotWidget_v_xy.plot()
 
         self.plotWidget_v_z = pg.PlotWidget(title='v_z (m/s)')
-        self.plotWidget_v_z.setYRange(max=self.cfg.getfloat('fixedwing', 'v_z_max'), min=-self.cfg.getfloat('fixedwing', 'v_z_max'))
-        self.plotWidget_v_z.showGrid(x=True,y=True)
+        self.plotWidget_v_z.setYRange(max=self.cfg.getfloat(
+            'fixedwing', 'v_z_max'), min=-self.cfg.getfloat('fixedwing', 'v_z_max'))
+        self.plotWidget_v_z.showGrid(x=True, y=True)
         self.plot_v_z = self.plotWidget_v_z.plot()
         self.plot_v_z_cmd = self.plotWidget_v_z.plot()
 
         self.plotWidget_roll = pg.PlotWidget(title='roll (deg)')
         self.plotWidget_roll.setYRange(max=45, min=-45)
-        self.plotWidget_roll.showGrid(x=True,y=True)
+        self.plotWidget_roll.showGrid(x=True, y=True)
         self.plot_roll_a = self.plotWidget_roll.plot()
         self.plot_roll_cmd_a = self.plotWidget_roll.plot()
 
@@ -199,10 +205,11 @@ class TrainingUi(QWidget):
         self.update_value_list(self.v_xy_cmd_list, action[0])
         self.update_value_list(self.v_z_cmd_list, action[1])
         self.update_value_list(self.yaw_rate_cmd_list, math.degrees(action[2]))
-        
+
         self.plot_v_xy_cmd.setData(self.v_xy_cmd_list, pen=self.pen_blue)
         self.plot_v_z_cmd.setData(self.v_z_cmd_list, pen=self.pen_blue)
-        self.plot_yaw_rate_cmd.setData(self.yaw_rate_cmd_list, pen=self.pen_blue)
+        self.plot_yaw_rate_cmd.setData(
+            self.yaw_rate_cmd_list, pen=self.pen_blue)
 
     def action_cb_fixed_wing(self, step, action):
         """
@@ -214,7 +221,7 @@ class TrainingUi(QWidget):
 
         # plot action
         self.plot_v_xy_cmd.setData(self.v_xy_cmd_list, pen=self.pen_blue)
-        self.plot_v_z_cmd.setData(self.v_z_cmd_list, pen=self.pen_blue) 
+        self.plot_v_z_cmd.setData(self.v_z_cmd_list, pen=self.pen_blue)
         self.plot_roll_cmd_a.setData(self.roll_cmd_list, pen=self.pen_blue)
 
 # state feature plot groupbox
@@ -228,26 +235,26 @@ class TrainingUi(QWidget):
         layout = QVBoxLayout()
 
         self.pw1 = pg.PlotWidget(title='distance_xy (m)')
-        self.pw1.showGrid(x=True,y=True)
-        self.p1 = self.pw1.plot() 
+        self.pw1.showGrid(x=True, y=True)
+        self.p1 = self.pw1.plot()
 
         self.pw2 = pg.PlotWidget(title='distance_z (m)')
-        self.pw2.showGrid(x=True,y=True)
-        self.p2 = self.pw2.plot() 
+        self.pw2.showGrid(x=True, y=True)
+        self.p2 = self.pw2.plot()
 
         self.pw3 = pg.PlotWidget(title='relative yaw (deg)')
-        self.pw3.showGrid(x=True,y=True)
-        self.p3 = self.pw3.plot() 
+        self.pw3.showGrid(x=True, y=True)
+        self.p3 = self.pw3.plot()
 
         layout.addWidget(self.pw1)
         layout.addWidget(self.pw2)
         layout.addWidget(self.pw3)
-        
+
         state_plot_groupbox.setLayout(layout)
         return state_plot_groupbox
 
     def state_cb(self, step, state_raw):
-        
+
         # update state
         self.update_value_list(self.distance_list, state_raw[0])
         self.update_value_list(self.vertical_dis_list, state_raw[1])
@@ -262,7 +269,7 @@ class TrainingUi(QWidget):
         self.update_value_list(self.v_z_real_list, state_raw[4])
         self.plot_v_xy.setData(self.v_xy_real_list, pen=self.pen_red)
         self.plot_v_z.setData(self.v_z_real_list, pen=self.pen_red)
-        
+
         if self.dynamics == 'SimpleFixedwing':
             self.update_value_list(self.roll_list_a, state_raw[5])
             self.plot_roll_a.setData(self.roll_list_a, pen=self.pen_red)
@@ -286,19 +293,19 @@ class TrainingUi(QWidget):
 
         self.pw_roll = pg.PlotWidget(title='roll (deg)')
         self.pw_roll.setYRange(max=45, min=-45)
-        self.pw_roll.showGrid(x=True,y=True)
+        self.pw_roll.showGrid(x=True, y=True)
         self.plot_roll = self.pw_roll.plot()
         self.plot_roll_cmd = self.pw_roll.plot()
 
         self.pw_pitch = pg.PlotWidget(title='pitch (deg)')
         self.pw_pitch.setYRange(max=25, min=-25)
-        self.pw_pitch.showGrid(x=True,y=True)
+        self.pw_pitch.showGrid(x=True, y=True)
         self.plot_pitch = self.pw_pitch.plot()
         self.plot_pitch_cmd = self.pw_pitch.plot()
 
         self.pw_yaw = pg.PlotWidget(title='yaw (deg)')
         # self.pw_yaw.setYRange(max=180, min=-180)
-        self.pw_yaw.showGrid(x=True,y=True)
+        self.pw_yaw.showGrid(x=True, y=True)
         self.plot_yaw = self.pw_yaw.plot()
         self.plot_yaw_cmd = self.pw_yaw.plot()
 
@@ -331,11 +338,11 @@ class TrainingUi(QWidget):
         self.total_reward_list = np.linspace(0, 0, self.max_len)
 
         self.rw_pw_1 = pg.PlotWidget(title='reward')
-        self.rw_pw_1.showGrid(x=True,y=True)
+        self.rw_pw_1.showGrid(x=True, y=True)
         self.rw_p_1 = self.rw_pw_1.plot()
 
         self.rw_pw_2 = pg.PlotWidget(title='total reward')
-        self.rw_pw_2.showGrid(x=True,y=True)
+        self.rw_pw_2.showGrid(x=True, y=True)
         self.rw_p_2 = self.rw_pw_2.plot()
 
         layout.addWidget(self.rw_pw_1)
@@ -362,13 +369,13 @@ class TrainingUi(QWidget):
         self.lgmd_out_list = np.linspace(0, 0, self.max_len)
 
         self.lgmd_pw_1 = pg.PlotWidget(title='min distance to obs')
-        self.lgmd_pw_1.showGrid(x=True,y=True)
+        self.lgmd_pw_1.showGrid(x=True, y=True)
         self.lgmd_p_1 = self.lgmd_pw_1.plot()
 
         self.lgmd_pw_2 = pg.PlotWidget(title='lgmd output')
-        self.lgmd_pw_2.showGrid(x=True,y=True)
+        self.lgmd_pw_2.showGrid(x=True, y=True)
         self.lgmd_p_2 = self.lgmd_pw_2.plot()
-        
+
         self.lgmd_pw_3 = MatplotlibWidget()
         # self.lgmd_pw_3.showGrid(x=True,y=True)
         # self.lgmd_p_3 = self.lgmd_pw_3.plot()
@@ -379,14 +386,14 @@ class TrainingUi(QWidget):
 
         lgmd_plot_groupbox.setLayout(layout)
         return lgmd_plot_groupbox
-    
+
     def lgmd_plot_cb(self, min_dist, lgmd_out, lgmd_split):
         self.update_value_list(self.min_dist_to_obs_list, min_dist)
         self.update_value_list(self.lgmd_out_list, lgmd_out)
 
         self.lgmd_p_1.setData(self.min_dist_to_obs_list, pen=self.pen_red)
         self.lgmd_p_2.setData(self.lgmd_out_list, pen=self.pen_red)
-        
+
         # add feature bar
         # x = np.arange(len(lgmd_split))
         # self.lgmd_pw_3.getFigure().clf()
@@ -403,7 +410,7 @@ class TrainingUi(QWidget):
         layout = QVBoxLayout()
 
         self.traj_pw = pg.PlotWidget(title='trajectory')
-        self.traj_pw.showGrid(x=True,y=True)
+        self.traj_pw.showGrid(x=True, y=True)
         # self.traj_pw.setXRange(max=350, min=-100)
         # self.traj_pw.setYRange(max=100, min=-300)
         self.traj_pw.setXRange(max=140, min=-140)
@@ -414,50 +421,55 @@ class TrainingUi(QWidget):
         if self.cfg.get('options', 'env_name') == 'SimpleAvoid':
             background_image_path = 'resources/env_maps/simple_world_light.png'
             img_data = Image.open(background_image_path)
-            image=np.copy(img_data)
+            image = np.copy(img_data)
             self.background_img = pg.ImageItem(image)
             self.traj_pw.addItem(self.background_img)
-            self.background_img.setZValue(-100)  # make sure image is behind other data
+            # make sure image is behind other data
+            self.background_img.setZValue(-100)
             self.background_img.setRect(pg.QtCore.QRectF(-60, -60, 120, 120))
             self.traj_pw.setXRange(max=60, min=-60)
             self.traj_pw.setYRange(max=60, min=-60)
         elif self.cfg.get('options', 'env_name') == 'NH_center':
             background_image_path = 'resources/env_maps/NH_center.png'
             img_data = Image.open(background_image_path)
-            image=np.copy(img_data)
+            image = np.copy(img_data)
             self.background_img = pg.ImageItem(image)
             self.traj_pw.addItem(self.background_img)
-            self.background_img.setZValue(-100)  # make sure image is behind other data
+            # make sure image is behind other data
+            self.background_img.setZValue(-100)
             self.background_img.setRect(pg.QtCore.QRectF(-135, -135, 270, 270))
             self.traj_pw.setXRange(max=135, min=-135)
             self.traj_pw.setYRange(max=135, min=-135)
         elif self.cfg.get('options', 'env_name') == 'City_400':
             background_image_path = 'resources/env_maps/city_400.png'
             img_data = Image.open(background_image_path)
-            image=np.copy(img_data)
+            image = np.copy(img_data)
             self.background_img = pg.ImageItem(image)
             self.traj_pw.addItem(self.background_img)
-            self.background_img.setZValue(-100)  # make sure image is behind other data
+            # make sure image is behind other data
+            self.background_img.setZValue(-100)
             self.background_img.setRect(pg.QtCore.QRectF(-220, -220, 440, 440))
             self.traj_pw.setXRange(max=220, min=-220)
             self.traj_pw.setYRange(max=220, min=-220)
         elif self.cfg.get('options', 'env_name') == 'Tree_200':
             background_image_path = 'resources/env_maps/trees_200_200.png'
             img_data = Image.open(background_image_path)
-            image=np.copy(img_data)
+            image = np.copy(img_data)
             self.background_img = pg.ImageItem(image)
             self.traj_pw.addItem(self.background_img)
-            self.background_img.setZValue(-100)  # make sure image is behind other data
+            # make sure image is behind other data
+            self.background_img.setZValue(-100)
             self.background_img.setRect(pg.QtCore.QRectF(-100, -100, 200, 200))
             self.traj_pw.setXRange(max=100, min=-100)
             self.traj_pw.setYRange(max=100, min=-100)
         elif self.cfg.get('options', 'env_name') == 'Forest':
             background_image_path = 'resources/env_maps/Forest.png'
             img_data = Image.open(background_image_path)
-            image=np.copy(img_data)
+            image = np.copy(img_data)
             self.background_img = pg.ImageItem(image)
             self.traj_pw.addItem(self.background_img)
-            self.background_img.setZValue(-100)  # make sure image is behind other data
+            # make sure image is behind other data
+            self.background_img.setZValue(-100)
             self.background_img.setRect(pg.QtCore.QRectF(-100, -100, 200, 200))
             self.traj_pw.setXRange(max=100, min=-100)
             self.traj_pw.setYRange(max=100, min=-100)
@@ -477,14 +489,16 @@ class TrainingUi(QWidget):
         self.traj_pw.clear()
 
         # set background image
-        background_list = ['SimpleAvoid', 'NH_center', 'City_400', 'Tree_200', 'Forest']
+        background_list = ['SimpleAvoid', 'NH_center',
+                           'City_400', 'Tree_200', 'Forest']
         if self.cfg.get('options', 'env_name') in background_list:
-            self.traj_pw.addItem(self.background_img)         
-        
+            self.traj_pw.addItem(self.background_img)
+
         # plot start, goal and trajectory
         self.traj_pw.plot([start[0]], [start[1]], symbol='o')
         self.traj_pw.plot([goal[0]], [goal[1]], symbol='o')
-        self.traj_pw.plot(trajectory_list[..., 0], trajectory_list[..., 1], pen=self.pen_red)
+        self.traj_pw.plot(
+            trajectory_list[..., 0], trajectory_list[..., 1], pen=self.pen_red)
 
 
 def main():

@@ -1,3 +1,4 @@
+from utils.custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet, CNN_GAP_new
 import datetime
 import gym
 import gym_env
@@ -15,7 +16,6 @@ import os
 import sys
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(CURRENT_DIR))
-from utils.custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet
 
 
 def get_parser():
@@ -25,7 +25,7 @@ def get_parser():
         '-c',
         '--config',
         help='config file name in configs folder, such as config_default',
-        default='config_Simple_fixedwing_depth')
+        default='config_Trees_SimpleMultirotor')
     parser.add_argument('-n',
                         '--note',
                         help='training objective',
@@ -68,8 +68,8 @@ class TrainingThread(QtCore.QThread):
         if self.cfg.getboolean('options', 'use_wandb'):
             wandb.init(
                 project=self.project_name,
-                notes="",
-                name='M1-SAC-no_L2',
+                notes="去掉critic的L2，增加结束时候的惩罚",
+                name='M1-SAC-with_L2_cnn_gap_new_no_pooling',
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 save_code=True,  # optional
             )
@@ -114,7 +114,7 @@ class TrainingThread(QtCore.QThread):
             if policy_name == 'CNN_FC':
                 policy_used = CNN_FC
             elif policy_name == 'CNN_GAP':
-                policy_used = CNN_GAP
+                policy_used = CNN_GAP_new
             elif policy_name == 'CNN_GAP_BN':
                 policy_used = CNN_GAP_BN
             elif policy_name == 'CNN_MobileNet':
@@ -167,7 +167,7 @@ class TrainingThread(QtCore.QThread):
                 train_freq=(self.cfg.getint('SAC', 'train_freq'), 'step'),
                 gradient_steps=self.cfg.getint('SAC', 'gradient_steps'),
                 tensorboard_log=log_path,
-                seed=0,
+                seed=2,
                 verbose=2)
         elif algo == 'TD3':
             # The noise objects for TD3

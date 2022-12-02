@@ -61,7 +61,7 @@ os.makedirs(config_path, exist_ok=True)
 env = gym.make('airsim-env-v0')
 
 #! --------------step 2: create models------------------------------------------
-feature_num_state = env.dynamic_model.state_feature_length # state feature num
+feature_num_state = env.dynamic_model.state_feature_length  # state feature num
 if policy == 'cnn_fc':
     feature_num_cnn = 25
     policy_used = CustomCNN_fc
@@ -79,63 +79,66 @@ else:
 
 policy_kwargs = dict(
     features_extractor_class=policy_used,
-    features_extractor_kwargs=dict(features_dim=feature_num_state+feature_num_cnn),  # 指定最后total feature 数目 应该是CNN+state
+    # 指定最后total feature 数目 应该是CNN+state
+    features_extractor_kwargs=dict(
+        features_dim=feature_num_state+feature_num_cnn),
     activation_fn=th.nn.ReLU
 )
 
 if algo == 'ppo':
     # policy_kwargs['net_arch']=[dict(pi=[32, 32], vf=[32, 32])]
-    policy_kwargs['net_arch']=[64, 32]
+    policy_kwargs['net_arch'] = [64, 32]
 
     model = PPO('CnnPolicy', env,
-            n_steps = 2048,
-            policy_kwargs=policy_kwargs,
-            tensorboard_log=log_path + '_' + env_name + '_' + algo,
-            seed=0, verbose=2)
+                n_steps=2048,
+                policy_kwargs=policy_kwargs,
+                tensorboard_log=log_path + '_' + env_name + '_' + algo,
+                seed=0, verbose=2)
 elif algo == 'td3':
     # policy_kwargs['net_arch']=dict(pi=[32, 32], qf=[32, 32])
-    policy_kwargs['net_arch']=[64, 32]
+    policy_kwargs['net_arch'] = [64, 32]
 
     n_actions = env.action_space.shape[-1]
     if noise_type == 'NA':
         action_noise = NormalActionNoise(
             mean=np.zeros(n_actions), sigma=noise_intensity * np.ones(n_actions))
-    elif noise_type == 'OU': 
+    elif noise_type == 'OU':
         action_noise = OrnsteinUhlenbeckActionNoise(
             mean=np.zeros(n_actions), sigma=noise_intensity * np.ones(n_actions), theta=5)
     else:
         print("noise_type error")
 
-    model = TD3('CnnPolicy', env, 
-            action_noise=action_noise,
-            learning_rate=learning_rate,
-            gamma=gamma,
-            policy_kwargs=policy_kwargs, verbose=1,
-            learning_starts=2000,
-            batch_size=128,
-            train_freq=(200, 'step'),
-            gradient_steps=200,
-            tensorboard_log=log_path + '_' + env_name + '_' + algo,
-            buffer_size=50000, seed=0)
+    model = TD3('CnnPolicy', env,
+                action_noise=action_noise,
+                learning_rate=learning_rate,
+                gamma=gamma,
+                policy_kwargs=policy_kwargs, verbose=1,
+                learning_starts=2000,
+                batch_size=128,
+                train_freq=(200, 'step'),
+                gradient_steps=200,
+                tensorboard_log=log_path + '_' + env_name + '_' + algo,
+                buffer_size=50000, seed=0)
 else:
     print('algo input error')
 
 #! ----------------step 4: enjoy training process---------------------------------
 env.model = model
 tb_log_name = algo + '_' + policy + '_' + purpose
-model.learn(total_timesteps=total_steps, 
+model.learn(total_timesteps=total_steps,
             # callback=TensorboardCallback(),
             # callback=WandbCallback(
             #     gradient_save_freq=100,
             #     model_save_path=f"models/{run.id}",
             #     verbose=2,
             # ),
-            log_interval=1, 
+            log_interval=1,
             tb_log_name=tb_log_name)
 
 # wandb.watch(model)
 #! ----------------step 5: save models and training results-----------------------
-model_name = method + '_' + algo + '_' + action_num + '_' + policy + '_' + purpose
+model_name = method + '_' + algo + '_' + \
+    action_num + '_' + policy + '_' + purpose
 os.makedirs(model_path, exist_ok=True)
 model.save(model_path + '/' + model_name)
 print('model is saved to :{}'.format(model_path + '/' + model_name))
