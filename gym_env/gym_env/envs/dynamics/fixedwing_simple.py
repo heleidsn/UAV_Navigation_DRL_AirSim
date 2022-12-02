@@ -91,7 +91,7 @@ class FixedwingDynamicsSimple():
 
     def update_start_goal_rect(self, size):
 
-        rect = [-size, -size, size, size]    
+        rect = [-size, -size, size, size]
         noise = np.random.random() * 2 - 1  # (-1,1)
         angle = noise * math.pi  # -pi~pi
 
@@ -173,7 +173,8 @@ class FixedwingDynamicsSimple():
         pose.position.x_val = self.x
         pose.position.y_val = self.y
         pose.position.z_val = - self.z
-        pose.orientation = airsim.to_quaternion(self.pitch, self.roll, self.yaw)
+        pose.orientation = airsim.to_quaternion(
+            self.pitch, self.roll, self.yaw)
         self.client.simSetVehiclePose(pose, False)
 
         return 0
@@ -251,5 +252,5 @@ class FixedwingDynamicsSimple():
 
         return yaw_error
 
-    def get_distance_to_goal_2d(self): 
+    def get_distance_to_goal_2d(self):
         return math.sqrt(pow(self.get_position()[0] - self.goal_position[0], 2) + pow(self.get_position()[1] - self.goal_position[1], 2))

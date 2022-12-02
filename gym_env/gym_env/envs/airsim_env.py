@@ -320,7 +320,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         return obs, reward, done, info
 
-#! -------------------------get obs------------------------------------------
+# ! -------------------------get obs------------------------------------------
     def get_obs(self):
         if self.lgmd is not None:
             # LGMD mode: get lgmd information
@@ -486,7 +486,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         return obs
 
-#! ---------------------calculate rewards-------------------------------------
+# ! ---------------------calculate rewards-------------------------------------
     def compute_reward(self, done, action):
         reward = 0
         reward_reach = 10
@@ -793,7 +793,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                 reward = reward_outside
 
         return reward
-#! ------------------ is done-----------------------------------------------
+# ! ------------------ is done-----------------------------------------------
 
     def is_done(self):
         episode_done = False
@@ -839,7 +839,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         return is_crashed
 
-#! ----------- useful functions-------------------------------------------
+# ! ----------- useful functions-------------------------------------------
     def get_distance_to_goal_3d(self):
         current_pose = self.dynamic_model.get_position()
         goal_pose = self.dynamic_model.goal_position
@@ -848,7 +848,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         relative_pose_z = current_pose[2] - goal_pose[2]
 
         return math.sqrt(pow(relative_pose_x, 2) + pow(relative_pose_y, 2) + pow(relative_pose_z, 2))
-#! -----------used for plot or show states------------------------------------------------------------------
+# ! -----------used for plot or show states------------------------------------------------------------------
 
     def print_train_info(self, action, reward, info):
         if self.perception_type == 'split' and self.cfg.has_section('lgmd'):
