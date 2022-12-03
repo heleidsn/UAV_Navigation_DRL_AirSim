@@ -61,8 +61,7 @@ class MultirotorDynamicsSimple():
             else:
                 self.state_feature_length = 3
             self.action_space = spaces.Box(low=np.array([self.v_xy_min, -self.v_z_max, -self.yaw_rate_max_rad]),
-                                           high=np.array(
-                                               [self.v_xy_max, self.v_z_max, self.yaw_rate_max_rad]),
+                                           high=np.array([self.v_xy_max, self.v_z_max, self.yaw_rate_max_rad]),
                                            dtype=np.float32)
         else:
             if self.using_velocity_state:
@@ -70,8 +69,7 @@ class MultirotorDynamicsSimple():
             else:
                 self.state_feature_length = 2
             self.action_space = spaces.Box(low=np.array([self.v_xy_min, -self.yaw_rate_max_rad]),
-                                           high=np.array(
-                                               [self.v_xy_max, self.yaw_rate_max_rad]),
+                                           high=np.array([self.v_xy_max, self.yaw_rate_max_rad]),
                                            dtype=np.float32)
 
     def reset(self):
@@ -158,7 +156,7 @@ class MultirotorDynamicsSimple():
     def get_goal_from_rect(self, rect_set, random_angle_set):
         rect = rect_set
         random_angle = random_angle_set
-        noise = np.random.random()  # (-0.5~0.5)
+        noise = np.random.random()
         angle = random_angle * noise - math.pi   # -pi~pi
         rect = [-128, -128, 128, 128]
         # goal_x = 100*math.sin(angle)
@@ -198,21 +196,17 @@ class MultirotorDynamicsSimple():
         relative_yaw = self._get_relative_yaw()  # return relative yaw -pi to pi
         # current position z is positive
         relative_pose_z = self.z - self.goal_position[2]
-        vertical_distance_norm = (
-            relative_pose_z / self.max_vertical_difference / 2 + 0.5) * 255
+        vertical_distance_norm = (relative_pose_z / self.max_vertical_difference / 2 + 0.5) * 255
 
         distance_norm = distance / self.goal_distance * 255
         relative_yaw_norm = (relative_yaw / math.pi / 2 + 0.5) * 255
 
         # current speed and angular speed
         linear_velocity_xy = self.v_xy
-        linear_velocity_norm = (
-            linear_velocity_xy - self.v_xy_min) / (self.v_xy_max - self.v_xy_min) * 255
+        linear_velocity_norm = (linear_velocity_xy - self.v_xy_min) / (self.v_xy_max - self.v_xy_min) * 255
         linear_velocity_z = self.v_z
-        linear_velocity_z_norm = (
-            linear_velocity_z / self.v_z_max / 2 + 0.5) * 255
-        angular_velocity_norm = (
-            self.yaw_rate / self.yaw_rate_max_rad / 2 + 0.5) * 255
+        linear_velocity_z_norm = (linear_velocity_z / self.v_z_max / 2 + 0.5) * 255
+        angular_velocity_norm = (self.yaw_rate / self.yaw_rate_max_rad / 2 + 0.5) * 255
 
         # state: distance_h, distance_v, relative yaw, velocity_x, velocity_z, velocity_yaw
         self.state_raw = np.array([distance, relative_pose_z,  math.degrees(
@@ -259,8 +253,6 @@ class MultirotorDynamicsSimple():
         return yaw_error
 
     def get_position(self):
-        """ get position in UE4 coordinate
-        """
         position = self.client.simGetVehiclePose().position
         return [position.x_val, position.y_val, -position.z_val]
 

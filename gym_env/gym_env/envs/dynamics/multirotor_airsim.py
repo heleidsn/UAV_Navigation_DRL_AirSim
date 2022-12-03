@@ -13,6 +13,8 @@ class MultirotorDynamicsAirsim():
         
         # config
         self.navigation_3d = cfg.getboolean('options', 'navigation_3d')
+        self.using_velocity_state = cfg.getboolean(
+            'options', 'using_velocity_state')
         self.dt = cfg.getfloat('multirotor', 'dt')
 
         # AirSim Client
@@ -53,15 +55,21 @@ class MultirotorDynamicsAirsim():
         self.max_vertical_difference = 5
         
         if self.navigation_3d:
-            self.state_feature_length = 6
-            self.action_space = spaces.Box(low=np.array([self.v_xy_min , -self.v_z_max, -self.yaw_rate_max_rad]), \
-                                            high=np.array([self.v_xy_max, self.v_z_max, self.yaw_rate_max_rad]), dtype=np.float32)
+            if self.using_velocity_state:
+                self.state_feature_length = 6
+            else:
+                self.state_feature_length = 3
+            self.action_space = spaces.Box(low=np.array([self.v_xy_min, -self.v_z_max, -self.yaw_rate_max_rad]),
+                                           high=np.array([self.v_xy_max, self.v_z_max, self.yaw_rate_max_rad]),
+                                           dtype=np.float32)
         else:
-            self.state_feature_length = 4
-            self.action_space = spaces.Box(low=np.array([self.v_xy_min , -self.yaw_rate_max_rad]), \
-                                                high=np.array([self.v_xy_max, self.yaw_rate_max_rad]), \
-                                                dtype=np.float32)
-
+            if self.using_velocity_state:
+                self.state_feature_length = 4
+            else:
+                self.state_feature_length = 2
+            self.action_space = spaces.Box(low=np.array([self.v_xy_min, -self.yaw_rate_max_rad]),
+                                           high=np.array([self.v_xy_max, self.yaw_rate_max_rad]),
+                                           dtype=np.float32)
 
     def reset(self):
         self.client.reset()
@@ -69,8 +77,7 @@ class MultirotorDynamicsAirsim():
         self.update_goal_pose()
 
         # reset start
-        yaw_noise = self.start_random_angle * np.random.random() 
-
+        yaw_noise = self.start_random_angle * np.random.random()
         # set airsim pose
         pose = self.client.simGetVehiclePose()
         pose.position.x_val = self.start_position[0]
@@ -90,8 +97,8 @@ class MultirotorDynamicsAirsim():
 
     def set_action(self, action):
 
-        self.v_xy_sp = action[0]
-        self.yaw_rate_sp = action[-1]
+        self.v_xy_sp = action[0] * 0.7
+        self.yaw_rate_sp = action[-1] * 2
         if self.navigation_3d:
             self.v_z_sp = float(action[1])
         else:
@@ -152,8 +159,8 @@ class MultirotorDynamicsAirsim():
             
     def get_goal_from_rect(self, rect_set, random_angle_set):
         rect = rect_set
-        random_angle=random_angle_set
-        noise = np.random.random()  # [0,1])
+        random_angle = random_angle_set
+        noise = np.random.random()
         angle = random_angle * noise - math.pi   # -pi~pi
         rect = [-128, -128, 128, 128]
         # goal_x = 100*math.sin(angle)
@@ -195,7 +202,7 @@ class MultirotorDynamicsAirsim():
         vertical_distance_norm = (relative_pose_z / self.max_vertical_difference / 2 + 0.5) * 255
 
         distance_norm = distance / self.goal_distance * 255
-        relative_yaw_norm = (relative_yaw / math.pi / 2 + 0.5 ) * 255
+        relative_yaw_norm = (relative_yaw / math.pi / 2 + 0.5) * 255
 
         # current speed and angular speed
         velocity = self.get_velocity()
@@ -204,19 +211,24 @@ class MultirotorDynamicsAirsim():
         linear_velocity_z = velocity[1]
         linear_velocity_z_norm = (linear_velocity_z / self.v_z_max / 2 + 0.5) * 255
         angular_velocity_norm = (velocity[2] / self.yaw_rate_max_rad / 2 + 0.5) * 255
-
+        # state: distance_h, distance_v, relative yaw, velocity_x, velocity_z, velocity_yaw
+        self.state_raw = np.array([distance, relative_pose_z,  math.degrees(
+            relative_yaw), linear_velocity_xy, linear_velocity_z,  math.degrees(velocity[2])])
+        state_norm = np.array([distance_norm, vertical_distance_norm, relative_yaw_norm,
+                               linear_velocity_norm, linear_velocity_z_norm, angular_velocity_norm])
+        state_norm = np.clip(state_norm, 0, 255)
+        
         if self.navigation_3d:
-            # state: distance_h, distance_v, relative yaw, velocity_x, velocity_z, velocity_yaw
-            self.state_raw = np.array([distance, relative_pose_z,  math.degrees(relative_yaw), linear_velocity_xy, linear_velocity_z,  math.degrees(velocity[2])])
-            state_norm = np.array([distance_norm, vertical_distance_norm, relative_yaw_norm, linear_velocity_norm, linear_velocity_z_norm, angular_velocity_norm])
-            state_norm = np.clip(state_norm, 0, 255)
-            self.state_norm = state_norm
+            if self.using_velocity_state == False:
+                state_norm = state_norm[:3]
         else:
-            self.state_raw = np.array([distance, math.degrees(relative_yaw), linear_velocity_xy,  math.degrees(velocity[2])])
-            state_norm = np.array([distance_norm, relative_yaw_norm, linear_velocity_norm, angular_velocity_norm])
-            state_norm = np.clip(state_norm, 0, 255)
-            self.state_norm = state_norm
-    
+            state_norm = np.array(
+                [state_norm[0], state_norm[2], state_norm[3], state_norm[5]])
+            if self.using_velocity_state == False:
+                state_norm = state_norm[:2]
+
+        self.state_norm = state_norm
+        
         return state_norm
 
     def _get_relative_yaw(self):
