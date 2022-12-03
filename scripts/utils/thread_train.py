@@ -1,4 +1,4 @@
-from utils.custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet, CNN_GAP_new
+from custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet, CNN_GAP_new
 import datetime
 import gym
 import gym_env
@@ -25,7 +25,7 @@ def get_parser():
         '-c',
         '--config',
         help='config file name in configs folder, such as config_default',
-        default='config_Trees_SimpleMultirotor')
+        default='config_Trees_SimpleMultirotor_2D')
     parser.add_argument('-n',
                         '--note',
                         help='training objective',
@@ -68,8 +68,8 @@ class TrainingThread(QtCore.QThread):
         if self.cfg.getboolean('options', 'use_wandb'):
             wandb.init(
                 project=self.project_name,
-                notes="去掉critic的L2，增加结束时候的惩罚",
-                name='M1-SAC-with_L2_cnn_gap_new_no_pooling',
+                notes=self.cfg.get('wandb', 'notes'),
+                name=self.cfg.get('wandb', 'name'),
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 save_code=True,  # optional
             )
@@ -80,10 +80,10 @@ class TrainingThread(QtCore.QThread):
     def run(self):
         print("run training thread")
 
-        #! -----------------------------------init folders-----------------------------------------
+        # ! -----------------------------------init folders-----------------------------------------
         now = datetime.datetime.now()
         now_string = now.strftime('%Y_%m_%d_%H_%M')
-        file_path = 'logs/' + self.project_name + '/' + now_string + '_' + self.cfg.get(
+        file_path = 'logs_new/' + self.project_name + '/' + now_string + '_' + self.cfg.get(
             'options', 'dynamic_name') + '_' + self.cfg.get(
                 'options', 'policy_name') + '_' + self.cfg.get(
                     'options', 'algo')
@@ -106,9 +106,14 @@ class TrainingThread(QtCore.QThread):
         policy_name = self.cfg.get('options', 'policy_name')
 
         # feature extraction network
-        if policy_name == 'lgmd_split':
+        if self.cfg.get('options', 'activation_function') == 'tanh':
+            activation_function = th.nn.Tanh
+        else:
+            activation_function = th.nn.ReLU
+        
+        if policy_name == 'mlp':
             policy_base = 'MlpPolicy'
-            policy_kwargs = dict(activation_fn=th.nn.ReLU)
+            policy_kwargs = dict(activation_fn=activation_function)
         else:
             policy_base = 'CnnPolicy'
             if policy_name == 'CNN_FC':
@@ -129,7 +134,7 @@ class TrainingThread(QtCore.QThread):
                 features_extractor_kwargs=dict(
                     features_dim=feature_num_state + feature_num_cnn,
                     state_feature_dim=feature_num_state),
-                activation_fn=th.nn.ReLU)
+                activation_fn=activation_function)
 
         # fully-connected work after feature extraction
         net_arch_list = ast.literal_eval(self.cfg.get("options", "net_arch"))
@@ -143,7 +148,7 @@ class TrainingThread(QtCore.QThread):
                 policy_base,
                 self.env,
                 # n_steps = 200,
-                learning_rate=self.cfg.getfloat('PPO', 'learning_rate'),
+                learning_rate=self.cfg.getfloat('DRL', 'learning_rate'),
                 policy_kwargs=policy_kwargs,
                 tensorboard_log=log_path,
                 seed=0,
@@ -151,7 +156,7 @@ class TrainingThread(QtCore.QThread):
         elif algo == 'SAC':
             n_actions = self.env.action_space.shape[-1]
             noise_sigma = self.cfg.getfloat(
-                'SAC', 'action_noise_sigma') * np.ones(n_actions)
+                'DRL', 'action_noise_sigma') * np.ones(n_actions)
             action_noise = NormalActionNoise(mean=np.zeros(n_actions),
                                              sigma=noise_sigma)
             model = SAC(
@@ -159,35 +164,35 @@ class TrainingThread(QtCore.QThread):
                 self.env,
                 action_noise=action_noise,
                 policy_kwargs=policy_kwargs,
-                buffer_size=self.cfg.getint('SAC', 'buffer_size'),
-                # gamma=0.9,
-                learning_starts=self.cfg.getint('SAC', 'learning_starts'),
-                learning_rate=self.cfg.getfloat('SAC', 'learning_rate'),
-                batch_size=self.cfg.getint('SAC', 'batch_size'),
-                train_freq=(self.cfg.getint('SAC', 'train_freq'), 'step'),
-                gradient_steps=self.cfg.getint('SAC', 'gradient_steps'),
+                buffer_size=self.cfg.getint('DRL', 'buffer_size'),
+                gamma=self.cfg.getfloat('DRL', 'gamma'),
+                learning_starts=self.cfg.getint('DRL', 'learning_starts'),
+                learning_rate=self.cfg.getfloat('DRL', 'learning_rate'),
+                batch_size=self.cfg.getint('DRL', 'batch_size'),
+                train_freq=(self.cfg.getint('DRL', 'train_freq'), 'step'),
+                gradient_steps=self.cfg.getint('DRL', 'gradient_steps'),
                 tensorboard_log=log_path,
-                seed=2,
+                seed=0,
                 verbose=2)
         elif algo == 'TD3':
             # The noise objects for TD3
             n_actions = self.env.action_space.shape[-1]
             noise_sigma = self.cfg.getfloat(
-                'TD3', 'action_noise_sigma') * np.ones(n_actions)
+                'DRL', 'action_noise_sigma') * np.ones(n_actions)
             action_noise = NormalActionNoise(mean=np.zeros(n_actions),
                                              sigma=noise_sigma)
             model = TD3(
                 policy_base,
                 self.env,
                 action_noise=action_noise,
-                learning_rate=self.cfg.getfloat('TD3', 'learning_rate'),
-                gamma=self.cfg.getfloat('TD3', 'gamma'),
+                learning_rate=self.cfg.getfloat('DRL', 'learning_rate'),
+                gamma=self.cfg.getfloat('DRL', 'gamma'),
                 policy_kwargs=policy_kwargs,
-                learning_starts=self.cfg.getint('TD3', 'learning_starts'),
-                batch_size=self.cfg.getint('TD3', 'batch_size'),
-                train_freq=(self.cfg.getint('TD3', 'train_freq'), 'step'),
-                gradient_steps=self.cfg.getint('TD3', 'gradient_steps'),
-                buffer_size=self.cfg.getint('TD3', 'buffer_size'),
+                learning_starts=self.cfg.getint('DRL', 'learning_starts'),
+                batch_size=self.cfg.getint('DRL', 'batch_size'),
+                train_freq=(self.cfg.getint('DRL', 'train_freq'), 'step'),
+                gradient_steps=self.cfg.getint('DRL', 'gradient_steps'),
+                buffer_size=self.cfg.getint('DRL', 'buffer_size'),
                 tensorboard_log=log_path,
                 seed=0,
                 verbose=2)
@@ -217,7 +222,7 @@ class TrainingThread(QtCore.QThread):
                 log_interval=1,
                 callback=WandbCallback(
                     model_save_freq=10000,
-                    gradient_save_freq=100,
+                    gradient_save_freq=5000,
                     model_save_path=model_path,
                     verbose=2,
                 )
@@ -237,7 +242,7 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
-    config_file = 'configs/' + args.config + '.ini'
+    config_file = 'configs_new/' + args.config + '.ini'
 
     print(config_file)
 
