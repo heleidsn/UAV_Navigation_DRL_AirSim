@@ -100,7 +100,7 @@ class TrainingThread(QtCore.QThread):
             activation_function = th.nn.Tanh
         else:
             activation_function = th.nn.ReLU
-        
+
         if policy_name == 'mlp':
             policy_base = 'MlpPolicy'
             policy_kwargs = dict(activation_fn=activation_function)
@@ -130,7 +130,7 @@ class TrainingThread(QtCore.QThread):
         net_arch_list = ast.literal_eval(self.cfg.get("options", "net_arch"))
         policy_kwargs['net_arch'] = net_arch_list
 
-        #! ---------------------------------algorithm selection-------------------------------------
+        # ! ---------------------------------algorithm selection-------------------------------------
         algo = self.cfg.get('options', 'algo')
         print('algo: ', algo)
         if algo == 'PPO':
@@ -196,7 +196,7 @@ class TrainingThread(QtCore.QThread):
         #                      log_path= file_path + '/eval', eval_freq=eval_freq, n_eval_episodes=n_eval_episodes,
         #                      deterministic=True, render=False)
 
-        #! -------------------------------------train-----------------------------------------
+        # ! -------------------------------------train-----------------------------------------
         print('start training model')
         total_timesteps = self.cfg.getint('options', 'total_timesteps')
         self.env.model = model
@@ -220,14 +220,14 @@ class TrainingThread(QtCore.QThread):
         else:
             model.learn(total_timesteps)
 
-        #! ---------------------------model save----------------------------------------------------
+        # ! ---------------------------model save----------------------------------------------------
         model_name = 'model_sb3'
         model.save(model_path + '/' + model_name)
 
         print('training finished')
         print('model saved to: {}'.format(model_path))
         del model
-        
+
         if self.cfg.getboolean('options', 'use_wandb'):
             run.finish()
 
@@ -236,18 +236,19 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
-    # config_file = 'configs_new/' + args.config + '.ini'
-    config_file = 'configs_new\config_Trees_SimpleMultirotor.ini'
+    config_file = 'configs_new/' + args.config + '.ini'
+    # config_file = 'configs_new\config_Trees_SimpleMultirotor.ini'
 
     print(config_file)
 
     training_thread = TrainingThread(config_file)
-    
+
     repeat_num = 3
     for i in range(repeat_num):
-        training_thread.run(seed=i+2)
+        training_thread.run(seed=i)
 
     print('training end.')
+
 
 if __name__ == "__main__":
     try:
