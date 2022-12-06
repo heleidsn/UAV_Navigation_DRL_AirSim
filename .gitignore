@@ -3,8 +3,10 @@ wandb/
 gym_env/gym_env.egg-info/
 gym_env/gym_env/envs/lgmd/
 logs_save/
+logs_new/
 img_save/
 scripts/lgmd/
 .vscode/
 
 *.pyc
+gym_env/gym_env/envs/airsim_env copy.py
