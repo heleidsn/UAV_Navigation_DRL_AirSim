@@ -63,7 +63,7 @@ class EvaluateThread(QtCore.QThread):
 
     def run(self):
         # self.run_rule_policy()
-        self.run_drl_model()
+        return self.run_drl_model()
 
     def run_drl_model(self):
         print('start evaluation')
