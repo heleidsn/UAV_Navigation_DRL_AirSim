@@ -383,12 +383,12 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
     def get_obs_vector(self):
 
         image = self.get_depth_image()  # 0-6550400.0 float 32
-        # image_resize = cv2.resize(image, (self.screen_width,
-        #                                   self.screen_height))
+        image_resize = cv2.resize(image, (self.screen_width,
+                                          self.screen_height))
         self.min_distance_to_obstacles = image.min()
 
         image_scaled = np.clip(
-            image, 0, self.max_depth_meters) / self.max_depth_meters * 255
+            image_resize, 0, self.max_depth_meters) / self.max_depth_meters * 255
         image_scaled = 255 - image_scaled
         image_uint8 = image_scaled.astype(np.uint8)
 
