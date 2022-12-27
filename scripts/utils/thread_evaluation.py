@@ -43,13 +43,20 @@ def rule_based_policy(obs):
 
 class EvaluateThread(QtCore.QThread):
     # signals
-    def __init__(self, eval_path, config, model_file, eval_ep_num, eval_type):
+    def __init__(self, eval_path, config, model_file, eval_ep_num, eval_env=None, eval_dynamics=None):
         super(EvaluateThread, self).__init__()
         print("init training thread")
 
         # config
         self.cfg = ConfigParser()
         self.cfg.read(config)
+        
+        # change eval_env and eval_dynamics if is not None
+        if eval_env is not None:
+            self.cfg.set('options', 'env_name', eval_env)
+        
+        if eval_dynamics is not None:
+            self.cfg.set('options', 'dynamic_name', eval_dynamics)
 
         self.env = gym.make('airsim-env-v0')
         self.env.set_config(self.cfg)
@@ -57,7 +64,8 @@ class EvaluateThread(QtCore.QThread):
         self.eval_path = eval_path
         self.model_file = model_file
         self.eval_ep_num = eval_ep_num
-        self.eval_type = eval_type
+        self.eval_env = self.cfg.get('options', 'env_name')
+        self.eval_dynamics = self.cfg.get('options', 'dynamic_name')
 
     def terminate(self):
         print('Evaluation terminated')
@@ -142,7 +150,7 @@ class EvaluateThread(QtCore.QThread):
                 obs_list = []
 
         # save trajectory data in eval folder
-        eval_folder = self.eval_path + '/eval_{}_{}'.format(self.eval_ep_num, self.eval_type)
+        eval_folder = self.eval_path + '/eval_{}_{}_{}'.format(self.eval_ep_num, self.eval_env, self.eval_dynamics)
         os.makedirs(eval_folder, exist_ok=True)
         np.save(eval_folder + '/traj_eval',
                 np.array(traj_list_all, dtype=object))
@@ -199,35 +207,38 @@ def main():
 
 def run_eval_multi():
     # run evaluation for multi models
-    eval_logs_path = 'logs_eval/Trees'
+    eval_logs_name = 'Trees'
+    eval_logs_path = 'logs_eval/' + eval_logs_name
+    eval_ep_num = 50
+    eval_env_name = 'SimpleAvoid'        # 1-Trees 2-SimpleAvoid 3-NH_center
+    eval_dynamic_name = 'SimpleMultirotor'  # 1-SimpleMultirotor or Multirotor
+
     model_list = []
     for train_name in os.listdir(eval_logs_path):
         for repeat_name in os.listdir(eval_logs_path + '/' + train_name):
             model_path = eval_logs_path + '/' + train_name + '/' + repeat_name
             model_list.append(model_path)
             # print(model_path)
-    
+
     # evaluate model according to model path
     eval_num = len(model_list)
     results_list = []
-    results_type = 'different_env_nh'  # 1-training_evn  2-different_env 3-different_dynamics
-    eval_ep_num = 50
-    
+
     for i in tqdm(range(eval_num)):
         eval_path = model_list[i]
         config_file = eval_path + '/config/config.ini'
         model_file = eval_path + '/models/model_sb3.zip'
 
         print(i, eval_path)
-        evaluate_thread = EvaluateThread(eval_path, config_file, model_file, eval_ep_num, results_type)
+        evaluate_thread = EvaluateThread(eval_path, config_file, model_file, eval_ep_num, eval_env_name, eval_dynamic_name)
         results = evaluate_thread.run()
         results_list.append(results)
-        
+
         del evaluate_thread
-        
+
     # save all results in a numpy file
     print(results_list)
-    np.save(eval_logs_path+'/eval_results_{}_{}'.format(results_type, eval_ep_num), np.array(results_list))
+    np.save('logs_eval/results/eval_{}_{}_{}_{}'.format(eval_ep_num, eval_logs_name, eval_env_name, eval_dynamic_name), np.array(results_list))
 
 
 if __name__ == "__main__":
