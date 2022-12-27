@@ -56,7 +56,7 @@ class EvaluateThread(QtCore.QThread):
             self.cfg.set('options', 'env_name', eval_env)
 
         if eval_env == 'NH_center':
-            self.cfg.set('environment', 'accept_radius', 1)
+            self.cfg.set('environment', 'accept_radius', str(1))
 
         if eval_dynamics is not None:
             self.cfg.set('options', 'dynamic_name', eval_dynamics)
