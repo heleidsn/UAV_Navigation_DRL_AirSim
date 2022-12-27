@@ -43,7 +43,7 @@ def rule_based_policy(obs):
 
 class EvaluateThread(QtCore.QThread):
     # signals
-    def __init__(self, eval_path, config, model_file, eval_ep_num):
+    def __init__(self, eval_path, config, model_file, eval_ep_num, eval_type):
         super(EvaluateThread, self).__init__()
         print("init training thread")
 
@@ -57,6 +57,7 @@ class EvaluateThread(QtCore.QThread):
         self.eval_path = eval_path
         self.model_file = model_file
         self.eval_ep_num = eval_ep_num
+        self.eval_type = eval_type
 
     def terminate(self):
         print('Evaluation terminated')
@@ -141,7 +142,7 @@ class EvaluateThread(QtCore.QThread):
                 obs_list = []
 
         # save trajectory data in eval folder
-        eval_folder = self.eval_path + '/eval_{}'.format(self.eval_ep_num)
+        eval_folder = self.eval_path + '/eval_{}_{}'.format(self.eval_ep_num, self.eval_type)
         os.makedirs(eval_folder, exist_ok=True)
         np.save(eval_folder + '/traj_eval',
                 np.array(traj_list_all, dtype=object))
@@ -209,7 +210,7 @@ def run_eval_multi():
     # evaluate model according to model path
     eval_num = len(model_list)
     results_list = []
-    results_type = 'training_env'  # 1-training_evn  2-different_env 3-different_dynamics
+    results_type = 'different_env_nh'  # 1-training_evn  2-different_env 3-different_dynamics
     eval_ep_num = 50
     
     for i in tqdm(range(eval_num)):
@@ -218,7 +219,7 @@ def run_eval_multi():
         model_file = eval_path + '/models/model_sb3.zip'
 
         print(i, eval_path)
-        evaluate_thread = EvaluateThread(eval_path, config_file, model_file, eval_ep_num)
+        evaluate_thread = EvaluateThread(eval_path, config_file, model_file, eval_ep_num, results_type)
         results = evaluate_thread.run()
         results_list.append(results)
         
