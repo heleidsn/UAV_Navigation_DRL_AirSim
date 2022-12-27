@@ -468,11 +468,16 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         reward_reach = 10
         reward_crash = -20
         reward_outside = -10
+        
+        if self.env_name == 'NH_center':
+            distance_reward_coef = 500
+        else:
+            distance_reward_coef = 50
 
         if not done:
             # 1 - goal reward
             distance_now = self.get_distance_to_goal_3d()
-            reward_distance = 50 * (self.previous_distance_from_des_point - distance_now) / \
+            reward_distance = distance_reward_coef * (self.previous_distance_from_des_point - distance_now) / \
                 self.dynamic_model.goal_distance   # normalized to 100 according to goal_distance
             self.previous_distance_from_des_point = distance_now
 

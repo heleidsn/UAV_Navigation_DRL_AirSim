@@ -50,13 +50,17 @@ class EvaluateThread(QtCore.QThread):
         # config
         self.cfg = ConfigParser()
         self.cfg.read(config)
-        
+
         # change eval_env and eval_dynamics if is not None
         if eval_env is not None:
             self.cfg.set('options', 'env_name', eval_env)
-        
+
+        if eval_env == 'NH_center':
+            self.cfg.set('environment', 'accept_radius', 1)
+
         if eval_dynamics is not None:
             self.cfg.set('options', 'dynamic_name', eval_dynamics)
+
 
         self.env = gym.make('airsim-env-v0')
         self.env.set_config(self.cfg)
@@ -207,10 +211,10 @@ def main():
 
 def run_eval_multi():
     # run evaluation for multi models
-    eval_logs_name = 'Trees'
+    eval_logs_name = 'Maze'
     eval_logs_path = 'logs_eval/' + eval_logs_name
     eval_ep_num = 50
-    eval_env_name = 'SimpleAvoid'        # 1-Trees 2-SimpleAvoid 3-NH_center
+    eval_env_name = 'NH_center'        # 1-Trees 2-SimpleAvoid 3-NH_center
     eval_dynamic_name = 'SimpleMultirotor'  # 1-SimpleMultirotor or Multirotor
 
     model_list = []
