@@ -8,6 +8,7 @@ import math
 import os
 import sys
 import cv2
+from tqdm import tqdm
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(CURRENT_DIR))
 sys.path.append(
@@ -82,6 +83,7 @@ class EvaluateThread(QtCore.QThread):
         time_step = 0
         reward_sum = np.array([.0])
         episode_successes = []
+        episode_crashes = []
         traj_list_all = []
         action_list_all = []
         state_list_all = []
@@ -111,9 +113,11 @@ class EvaluateThread(QtCore.QThread):
             if done:
                 episode_num += 1
                 maybe_is_success = info.get('is_success')
+                maybe_is_crash = info.get('is_crash')
                 print('episode: ', episode_num, ' reward:', reward_sum[-1],
                       'success:', maybe_is_success)
                 episode_successes.append(float(maybe_is_success))
+                episode_crashes.append(float(maybe_is_crash))
                 reward_sum = np.append(reward_sum, .0)
                 obs = self.env.reset()
                 if info.get('is_success'):
@@ -150,7 +154,15 @@ class EvaluateThread(QtCore.QThread):
 
         print('Average episode reward: ', reward_sum[:self.eval_ep_num].mean(),
               'Success rate:', np.mean(episode_successes),
-              'average step num: ', np.mean(step_num_list))
+              'Crash rate: ', np.mean(episode_crashes),
+              'average success step num: ', np.mean(step_num_list))
+        
+        results = [reward_sum[:self.eval_ep_num].mean(), np.mean(episode_successes), np.mean(episode_crashes), np.mean(step_num_list)]
+        
+        print(results)
+        np.save(eval_folder + '/results', np.array(results))
+        
+        return results
 
     def run_rule_policy(self):
         obs = self.env.reset()
@@ -174,7 +186,7 @@ class EvaluateThread(QtCore.QThread):
 
 
 def main():
-    eval_path = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs\NH_center\2022_09_20_13_53_SimpleMultirotor_CNN_GAP_SAC'
+    eval_path = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim\logs_new\Trees\2022_12_02_21_46_SimpleMultirotor_mlp_SAC'
     config_file = eval_path + '/config/config.ini'
     model_file = eval_path + '/models/model_sb3.zip'
 
@@ -184,8 +196,42 @@ def main():
     evaluate_thread.run()
 
 
+def run_eval_multi():
+    # run evaluation for multi models
+    eval_logs_path = 'logs_eval/Trees'
+    model_list = []
+    for train_name in os.listdir(eval_logs_path):
+        for repeat_name in os.listdir(eval_logs_path + '/' + train_name):
+            model_path = eval_logs_path + '/' + train_name + '/' + repeat_name
+            model_list.append(model_path)
+            # print(model_path)
+    
+    # evaluate model according to model path
+    eval_num = len(model_list)
+    results_list = []
+    results_type = 'training_env'  # 1-training_evn  2-different_env 3-different_dynamics
+    eval_ep_num = 50
+    
+    for i in tqdm(range(eval_num)):
+        eval_path = model_list[i]
+        config_file = eval_path + '/config/config.ini'
+        model_file = eval_path + '/models/model_sb3.zip'
+
+        print(i, eval_path)
+        evaluate_thread = EvaluateThread(eval_path, config_file, model_file, eval_ep_num)
+        results = evaluate_thread.run()
+        results_list.append(results)
+        
+        del evaluate_thread
+        
+    # save all results in a numpy file
+    print(results_list)
+    np.save(eval_logs_path+'/eval_results_{}_{}'.format(results_type, eval_ep_num), np.array(results_list))
+
+
 if __name__ == "__main__":
     try:
-        main()
+        # main()
+        run_eval_multi()
     except KeyboardInterrupt:
         print('system exit')
