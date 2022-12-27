@@ -276,8 +276,9 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                 with th.no_grad():
                     # get q-value for td3
                     obs_copy = obs.copy()
-                    obs_copy = obs_copy.swapaxes(0, 1)
-                    obs_copy = obs_copy.swapaxes(0, 2)
+                    if self.perception_type != 'vector':
+                        obs_copy = obs_copy.swapaxes(0, 1)
+                        obs_copy = obs_copy.swapaxes(0, 2)
                     q_value_current = self.model.critic(th.from_numpy(obs_copy[tuple(
                         [None])]).float().cuda(), th.from_numpy(action[None]).float().cuda())
                     q_1 = q_value_current[0].cpu().numpy()[0]
@@ -305,12 +306,12 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         # Normal mode: get depth image then transfer to matrix with state
         # 1. get current depth image and transfer to 0-255  0-20m 255-0m
         image = self.get_depth_image()  # 0-6550400.0 float 32
-        # image_resize = cv2.resize(image, (self.screen_width,
-        #                                   self.screen_height))
+        image_resize = cv2.resize(image, (self.screen_width,
+                                          self.screen_height))
         self.min_distance_to_obstacles = image.min()
         # switch 0 and 255
         image_scaled = np.clip(
-            image, 0, self.max_depth_meters) / self.max_depth_meters * 255
+            image_resize, 0, self.max_depth_meters) / self.max_depth_meters * 255
         image_scaled = 255 - image_scaled
         image_uint8 = image_scaled.astype(np.uint8)
 
