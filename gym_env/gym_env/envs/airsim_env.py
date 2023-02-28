@@ -125,7 +125,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.work_space_z = [0.5, 50]
             self.max_episode_steps = 400
         elif self.env_name == 'Forest':
-            start_position = [0, 0, 8]
+            start_position = [0, 0, 10]
             goal_position = [280, -200, 50]
             self.dynamic_model.set_start(start_position, random_angle=0)
             self.dynamic_model._set_goal_pose_single(goal_position)
@@ -151,6 +151,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         self.client = self.dynamic_model.client
         self.state_feature_length = self.dynamic_model.state_feature_length
+        self.cnn_feature_length = self.cfg.getint('options', 'cnn_feature_num')
 
         # training state
         self.episode_num = 0
@@ -173,7 +174,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         if self.perception_type == 'vector':
             self.observation_space = spaces.Box(low=0, high=1,
                                                 shape=(1,
-                                                       25+self.state_feature_length),
+                                                       self.cnn_feature_length + self.state_feature_length),
                                                 dtype=np.float32)
         else:
             self.observation_space = spaces.Box(low=0, high=255,
@@ -383,25 +384,22 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
     def get_obs_vector(self):
 
         image = self.get_depth_image()  # 0-6550400.0 float 32
-        image_resize = cv2.resize(image, (self.screen_width,
-                                          self.screen_height))
         self.min_distance_to_obstacles = image.min()
 
-        image_scaled = np.clip(
-            image_resize, 0, self.max_depth_meters) / self.max_depth_meters * 255
+        image_scaled = np.clip(image, 0, self.max_depth_meters) / self.max_depth_meters * 255
         image_scaled = 255 - image_scaled
         image_uint8 = image_scaled.astype(np.uint8)
 
         image_obs = image_uint8
-        split_row = 5
+        split_row = 1
         split_col = 5
 
-        v_split_list = np.vsplit(image_obs, split_col)
+        v_split_list = np.vsplit(image_obs, split_row)
 
         split_final = []
-        for i in range(split_col):
-            h_split_list = np.hsplit(v_split_list[i], split_row)
-            for j in range(split_row):
+        for i in range(split_row):
+            h_split_list = np.hsplit(v_split_list[i], split_col)
+            for j in range(split_col):
                 split_final.append(h_split_list[j].max())
 
         img_feature = np.array(split_final) / 255.0
