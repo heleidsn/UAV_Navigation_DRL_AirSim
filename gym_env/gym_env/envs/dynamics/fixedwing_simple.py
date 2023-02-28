@@ -133,9 +133,10 @@ class FixedwingDynamicsSimple():
 
     def set_action(self, action, step):
         """
-        更新动力学
-        前向速度保持不变
-        通过滚转来实现偏航运动
+        update position
+        keep forward velocity fixed
+        using roll as control command to change yaw
+        using image stablization for pitch and roll
         """
         self.roll_cmd = action[0]
 

@@ -50,23 +50,24 @@ class TrainingThread(QtCore.QThread):
         # make gym environment
         self.env = gym.make('airsim-env-v0')
         self.env.set_config(self.cfg)
+        self.project_name = self.cfg.get('options', 'project_name')
+
+
+    def terminate(self):
+        print('TrainingThread terminated')
+
+    def run(self, seed=0):
+        print("run training thread")
 
         # wandb
-        self.project_name = self.cfg.get('options', 'project_name')
         if self.cfg.getboolean('options', 'use_wandb'):
-            wandb.init(
+            run = wandb.init(
                 project=self.project_name,
                 notes=self.cfg.get('options', 'notes'),
                 name=self.cfg.get('options', 'wandb_run_name'),
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                 save_code=True,  # optional
             )
-
-    def terminate(self):
-        print('TrainingThread terminated')
-
-    def run(self):
-        print("run training thread")
 
         # ! -----------------------------------init folders-----------------------------------------
         now = datetime.datetime.now()
@@ -107,7 +108,7 @@ class TrainingThread(QtCore.QThread):
             if policy_name == 'CNN_FC':
                 policy_used = CNN_FC
             elif policy_name == 'CNN_GAP':
-                policy_used = CNN_GAP_new
+                policy_used = CNN_GAP
             elif policy_name == 'CNN_GAP_BN':
                 policy_used = CNN_GAP_BN
             elif policy_name == 'CNN_MobileNet':
@@ -128,18 +129,18 @@ class TrainingThread(QtCore.QThread):
         net_arch_list = ast.literal_eval(self.cfg.get("options", "net_arch"))
         policy_kwargs['net_arch'] = net_arch_list
 
-        #! ---------------------------------algorithm selection-------------------------------------
+        # ! ---------------------------------algorithm selection-------------------------------------
         algo = self.cfg.get('options', 'algo')
         print('algo: ', algo)
         if algo == 'PPO':
             model = PPO(
                 policy_base,
                 self.env,
-                # n_steps = 200,
+                n_epochs=50,
                 learning_rate=self.cfg.getfloat('DRL', 'learning_rate'),
                 policy_kwargs=policy_kwargs,
                 tensorboard_log=log_path,
-                seed=0,
+                seed=seed,
                 verbose=2)
         elif algo == 'SAC':
             n_actions = self.env.action_space.shape[-1]
@@ -160,7 +161,7 @@ class TrainingThread(QtCore.QThread):
                 train_freq=(self.cfg.getint('DRL', 'train_freq'), 'step'),
                 gradient_steps=self.cfg.getint('DRL', 'gradient_steps'),
                 tensorboard_log=log_path,
-                seed=0,
+                seed=seed,
                 verbose=2)
         elif algo == 'TD3':
             # The noise objects for TD3
@@ -182,7 +183,7 @@ class TrainingThread(QtCore.QThread):
                 gradient_steps=self.cfg.getint('DRL', 'gradient_steps'),
                 buffer_size=self.cfg.getint('DRL', 'buffer_size'),
                 tensorboard_log=log_path,
-                seed=0,
+                seed=seed,
                 verbose=2)
         else:
             raise Exception('Invalid algo name : ', algo)
@@ -194,7 +195,7 @@ class TrainingThread(QtCore.QThread):
         #                      log_path= file_path + '/eval', eval_freq=eval_freq, n_eval_episodes=n_eval_episodes,
         #                      deterministic=True, render=False)
 
-        #! -------------------------------------train-----------------------------------------
+        # ! -------------------------------------train-----------------------------------------
         print('start training model')
         total_timesteps = self.cfg.getint('options', 'total_timesteps')
         self.env.model = model
@@ -218,12 +219,16 @@ class TrainingThread(QtCore.QThread):
         else:
             model.learn(total_timesteps)
 
-        #! ---------------------------model save----------------------------------------------------
+        # ! ---------------------------model save----------------------------------------------------
         model_name = 'model_sb3'
         model.save(model_path + '/' + model_name)
 
         print('training finished')
         print('model saved to: {}'.format(model_path))
+        del model
+
+        if self.cfg.getboolean('options', 'use_wandb'):
+            run.finish()
 
 
 def main():
@@ -235,7 +240,12 @@ def main():
     print(config_file)
 
     training_thread = TrainingThread(config_file)
-    training_thread.run()
+
+    repeat_num = 3
+    for i in range(repeat_num):
+        training_thread.run(seed=i)
+
+    print('training end.')
 
 
 if __name__ == "__main__":

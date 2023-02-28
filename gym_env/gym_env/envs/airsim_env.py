@@ -12,6 +12,7 @@ import cv2
 from .dynamics.multirotor_simple import MultirotorDynamicsSimple
 from .dynamics.multirotor_airsim import MultirotorDynamicsAirsim
 from .dynamics.fixedwing_simple import FixedwingDynamicsSimple
+from .lgmd.LGMD import LGMD
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal
@@ -45,6 +46,11 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.keyboard_debug = cfg.getboolean('options', 'keyboard_debug')
         self.generate_q_map = cfg.getboolean('options', 'generate_q_map')
         self.perception_type = cfg.get('options', 'perception')
+        
+        # create LGMD agent
+        if self.perception_type == 'lgmd':
+            self.lgmd = LGMD(type='origin',  p_threshold=50, s_threshold=0, Ki=2, i_layer_size=3, activate_coeff=1, use_on_off=True)
+        
         print('Environment: ', self.env_name, "Dynamics: ", self.dynamic_name,
               'Perception: ', self.perception_type)
 
@@ -171,7 +177,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.trajectory_list = []
 
         # observation space vector or image
-        if self.perception_type == 'vector':
+        if self.perception_type == 'vector' or self.perception_type == 'lgmd':
             self.observation_space = spaces.Box(low=0, high=1,
                                                 shape=(1,
                                                        self.cnn_feature_length + self.state_feature_length),
@@ -298,6 +304,8 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
     def get_obs(self):
         if self.perception_type == 'vector':
             obs = self.get_obs_vector()
+        elif self.perception_type == 'lgmd':
+            obs = self.get_obs_lgmd()
         else:
             obs = self.get_obs_image()
 
@@ -414,6 +422,49 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         return feature_all
 
+    def get_obs_lgmd(self):
+        # get depth and gray image
+        depth_meter, img_gray = self.get_depth_gray_image()
+        self.min_distance_to_obstacles = depth_meter.min()
+
+        self.lgmd.update(img_gray)
+        
+        split_col_num = 5
+        s_layer = self.lgmd.s_layer  # (192, 320)
+        s_layer_split = np.hsplit(s_layer, split_col_num)  # (192, 109)
+        
+        lgmd_out_list = []
+        activate_coeff = 1
+        for i in range(split_col_num):
+            s_layer_activated_sum = abs(np.sum(s_layer_split[i]))
+            Kf = -(s_layer_activated_sum * activate_coeff) / (192*64)  # 0 - 1
+            a = np.exp(Kf)
+            lgmd_out_norm = (1 / (1 + a) - 0.5) * 2
+            lgmd_out_list.append(lgmd_out_norm)
+        
+        # show iamges
+        heatmapshow = None
+        heatmapshow = cv2.normalize(s_layer, heatmapshow, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
+        cv2.imshow('gray image', img_gray)
+        cv2.imshow('depth image', np.clip(depth_meter, 0, 255)/255)
+        cv2.imshow('s-layer', heatmapshow)
+        cv2.waitKey(1)
+
+        # update LGMD
+        split_final = np.array(lgmd_out_list)
+
+        img_feature = np.array(split_final)
+
+        state_feature = self.dynamic_model._get_state_feature() / 255
+
+        feature_all = np.concatenate((img_feature, state_feature), axis=0)
+
+        self.feature_all = feature_all
+
+        feature_all = np.reshape(feature_all, (1, len(feature_all)))
+
+        return feature_all
 # ! ---------------------calculate rewards-------------------------------------
 
     def compute_reward(self, done, action):
@@ -816,7 +867,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 # ! -----------used for plot or show states------------------------------------------------------------------
 
     def print_train_info_airsim(self, action, obs, reward, info):
-        if self.perception_type == 'split' and self.cfg.has_section('lgmd'):
+        if self.perception_type == 'split' or self.perception_type == 'lgmd':
             feature_all = self.feature_all
         elif self.perception_type == 'vector':
             feature_all = self.feature_all
