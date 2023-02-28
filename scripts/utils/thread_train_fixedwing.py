@@ -52,9 +52,10 @@ class TrainingThread(QtCore.QThread):
         self.env.set_config(self.cfg)
 
         # wandb
+        self.project_name = self.cfg.get('options', 'project_name')
         if self.cfg.getboolean('options', 'use_wandb'):
             wandb.init(
-                project=self.cfg.get('options', 'wandb_project_name'),
+                project=self.project_name,
                 notes=self.cfg.get('options', 'notes'),
                 name=self.cfg.get('options', 'wandb_run_name'),
                 sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
