@@ -238,7 +238,8 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         # ----------------compute reward---------------------------
         if self.dynamic_name == 'SimpleFixedwing':
-            reward = self.compute_reward_fixedwing(done, action)
+            # reward = self.compute_reward_fixedwing(done, action)
+            reward = self.compute_reward_final_fixedwing(done, action)
         elif self.reward_type == 'reward_with_action':
             reward = self.compute_reward_with_action(done, action)
         elif self.reward_type == 'reward_new':
@@ -443,13 +444,13 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             lgmd_out_list.append(lgmd_out_norm)
         
         # show iamges
-        heatmapshow = None
-        heatmapshow = cv2.normalize(s_layer, heatmapshow, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-        heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
-        cv2.imshow('gray image', img_gray)
-        cv2.imshow('depth image', np.clip(depth_meter, 0, 255)/255)
-        cv2.imshow('s-layer', heatmapshow)
-        cv2.waitKey(1)
+        # heatmapshow = None
+        # heatmapshow = cv2.normalize(s_layer, heatmapshow, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        # heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
+        # cv2.imshow('gray image', img_gray)
+        # cv2.imshow('depth image', np.clip(depth_meter, 0, 255)/255)
+        # cv2.imshow('s-layer', heatmapshow)
+        # cv2.waitKey(1)
 
         # update LGMD
         split_final = np.array(lgmd_out_list)
@@ -580,6 +581,65 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
         return reward
 
+    def compute_reward_final_fixedwing(self, done, action):
+        reward = 0
+        reward_reach = 10
+        reward_crash = -20
+        reward_outside = -10
+        
+        if self.env_name == 'NH_center':
+            distance_reward_coef = 500
+        else:
+            distance_reward_coef = 50
+
+        if not done:
+            # 1 - goal reward
+            distance_now = self.get_distance_to_goal_3d()
+            reward_distance = distance_reward_coef * (self.previous_distance_from_des_point - distance_now) / \
+                self.dynamic_model.goal_distance   # normalized to 100 according to goal_distance
+            self.previous_distance_from_des_point = distance_now
+
+            # 2 - Position punishment
+            current_pose = self.dynamic_model.get_position()
+            goal_pose = self.dynamic_model.goal_position
+            x = current_pose[0]
+            y = current_pose[1]
+            z = current_pose[2]
+            x_g = goal_pose[0]
+            y_g = goal_pose[1]
+            z_g = goal_pose[2]
+
+            punishment_xy = np.clip(self.getDis(
+                x, y, 0, 0, x_g, y_g) / 50, 0, 1)
+            # punishment_z = 0.5 * np.clip((z - z_g)/5, 0, 1)
+
+            punishment_pose = punishment_xy
+
+            if self.min_distance_to_obstacles < 10:
+                punishment_obs = 1 - np.clip((self.min_distance_to_obstacles - self.crash_distance) / 15, 0, 1)
+            else:
+                punishment_obs = 0
+
+            # action cost
+            punishment_action = abs(action[0]) / self.dynamic_model.roll_rate_max
+
+            yaw_error = self.dynamic_model.state_raw[1]
+            yaw_error_cost = abs(yaw_error / 90)
+
+            reward = reward_distance - 0.1 * punishment_pose - 0.2 * \
+                punishment_obs - 0.1 * punishment_action - 0.5 * yaw_error_cost
+            
+            # print("r_dist: {:.2f} p_pose: {:.2f} p_obs: {:.2f} p_action: {:.2f}, p_yaw_e: {:.2f}".format(reward_distance, punishment_pose, punishment_obs, punishment_action, yaw_error_cost))
+        else:
+            if self.is_in_desired_pose():
+                reward = reward_reach
+            if self.is_crashed():
+                reward = reward_crash
+            if self.is_not_inside_workspace():
+                reward = reward_outside
+
+        return reward
+    
     def compute_reward_test(self, done, action):
         reward = 0
         reward_reach = 10
