@@ -430,20 +430,20 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.min_distance_to_obstacles = depth_meter.min()
 
         self.lgmd.update(img_gray)
-        
+
         split_col_num = 5
         s_layer = self.lgmd.s_layer  # (192, 320)
         s_layer_split = np.hsplit(s_layer, split_col_num)  # (192, 109)
-        
+
         lgmd_out_list = []
-        activate_coeff = 1
+        activate_coeff = 0.5
         for i in range(split_col_num):
             s_layer_activated_sum = abs(np.sum(s_layer_split[i]))
             Kf = -(s_layer_activated_sum * activate_coeff) / (192*64)  # 0 - 1
             a = np.exp(Kf)
             lgmd_out_norm = (1 / (1 + a) - 0.5) * 2
             lgmd_out_list.append(lgmd_out_norm)
-        
+
         # show iamges
         heatmapshow = None
         heatmapshow = cv2.normalize(s_layer, heatmapshow, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
@@ -456,7 +456,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         # update LGMD
         split_final = np.array(lgmd_out_list)
         
-        filter_coeff = 0.6
+        filter_coeff = 0.8
         split_final_filter = filter_coeff * split_final + (1-filter_coeff) * self.split_out_last
         self.split_out_last = split_final_filter
 
@@ -588,19 +588,14 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
     def compute_reward_final_fixedwing(self, done, action):
         reward = 0
-        reward_reach = 0
-        reward_crash = 0
-        reward_outside = 0
-        
-        if self.env_name == 'NH_center':
-            distance_reward_coef = 500
-        else:
-            distance_reward_coef = 50
+        reward_reach = 10
+        reward_crash = -20
+        reward_outside = -10
 
         if not done:
             # 1 - goal reward
             distance_now = self.get_distance_to_goal_3d()
-            reward_distance = distance_reward_coef * (self.previous_distance_from_des_point - distance_now) / \
+            reward_distance = 300 * (self.previous_distance_from_des_point - distance_now) / \
                 self.dynamic_model.goal_distance   # normalized to 100 according to goal_distance
             self.previous_distance_from_des_point = distance_now
 
@@ -629,9 +624,9 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             yaw_error = self.dynamic_model.state_raw[1]
             yaw_error_cost = abs(yaw_error / 90)
 
-            reward = - 0.1 * punishment_pose - 0.5 * \
+            reward = reward_distance - 0.1 * punishment_pose - 0.5 * \
                 punishment_obs - 0.1 * punishment_action - 0.1 * yaw_error_cost
-            reward = reward * 10
+            # reward = reward
 
             # print("r_dist: {:.2f} p_pose: {:.2f} p_obs: {:.2f} p_action: {:.2f}, p_yaw_e: {:.2f}".format(reward_distance, punishment_pose, punishment_obs, punishment_action, yaw_error_cost))
         else:
@@ -720,15 +715,14 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
             action_cost = abs(action[0]) / self.dynamic_model.roll_rate_max
 
-            yaw_error_deg = self.dynamic_model.state_raw[2]
+            yaw_error_deg = self.dynamic_model.state_raw[1]
             yaw_error_cost = 0.1 * abs(yaw_error_deg / 180)
 
             reward = reward_distance - action_cost - yaw_error_cost
         else:
             if self.is_in_desired_pose():
-                yaw_error_deg = self.dynamic_model.state_raw[2]
-                reward = reward_reach * (1 -
-                                         abs(yaw_error_deg / 180))
+                yaw_error_deg = self.dynamic_model.state_raw[1]
+                reward = reward_reach * (1 - abs(yaw_error_deg / 180))
                 # reward = reward_reach
             if self.is_crashed():
                 reward = reward_crash
@@ -984,7 +978,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             self.dynamic_model.start_position), np.asarray(self.dynamic_model.get_position()), np.asarray(self.trajectory_list))
 
         # lgmd_signal = pyqtSignal(float, float, np.ndarray)  min_dist, lgmd_out, lgmd_split
-        self.lgmd_signal.emit(self.min_distance_to_obstacles, 0,  self.feature_all)
+        self.lgmd_signal.emit(self.min_distance_to_obstacles, 0,  self.feature_all[:-1])
 
     def set_pyqt_signal_multirotor(self, action, reward):
         step = int(self.total_step)
