@@ -46,11 +46,12 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.keyboard_debug = cfg.getboolean('options', 'keyboard_debug')
         self.generate_q_map = cfg.getboolean('options', 'generate_q_map')
         self.perception_type = cfg.get('options', 'perception')
-        
+
         # create LGMD agent
         if self.perception_type == 'lgmd':
             self.lgmd = LGMD(type='origin',  p_threshold=50, s_threshold=0, Ki=2, i_layer_size=3, activate_coeff=1, use_on_off=True)
-        
+            self.split_out_last = np.array([0, 0, 0, 0, 0])
+
         print('Environment: ', self.env_name, "Dynamics: ", self.dynamic_name,
               'Perception: ', self.perception_type)
 
@@ -444,18 +445,22 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             lgmd_out_list.append(lgmd_out_norm)
         
         # show iamges
-        # heatmapshow = None
-        # heatmapshow = cv2.normalize(s_layer, heatmapshow, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-        # heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
-        # cv2.imshow('gray image', img_gray)
-        # cv2.imshow('depth image', np.clip(depth_meter, 0, 255)/255)
-        # cv2.imshow('s-layer', heatmapshow)
-        # cv2.waitKey(1)
+        heatmapshow = None
+        heatmapshow = cv2.normalize(s_layer, heatmapshow, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
+        cv2.imshow('gray image', img_gray)
+        cv2.imshow('depth image', np.clip(depth_meter, 0, 255)/255)
+        cv2.imshow('s-layer', heatmapshow)
+        cv2.waitKey(1)
 
         # update LGMD
         split_final = np.array(lgmd_out_list)
+        
+        filter_coeff = 0.6
+        split_final_filter = filter_coeff * split_final + (1-filter_coeff) * self.split_out_last
+        self.split_out_last = split_final_filter
 
-        img_feature = np.array(split_final)
+        img_feature = np.array(split_final_filter)
 
         state_feature = self.dynamic_model._get_state_feature() / 255
 
@@ -583,9 +588,9 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
     def compute_reward_final_fixedwing(self, done, action):
         reward = 0
-        reward_reach = 10
-        reward_crash = -20
-        reward_outside = -10
+        reward_reach = 0
+        reward_crash = 0
+        reward_outside = 0
         
         if self.env_name == 'NH_center':
             distance_reward_coef = 500
@@ -604,10 +609,8 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             goal_pose = self.dynamic_model.goal_position
             x = current_pose[0]
             y = current_pose[1]
-            z = current_pose[2]
             x_g = goal_pose[0]
             y_g = goal_pose[1]
-            z_g = goal_pose[2]
 
             punishment_xy = np.clip(self.getDis(
                 x, y, 0, 0, x_g, y_g) / 50, 0, 1)
@@ -615,7 +618,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 
             punishment_pose = punishment_xy
 
-            if self.min_distance_to_obstacles < 10:
+            if self.min_distance_to_obstacles < 20:
                 punishment_obs = 1 - np.clip((self.min_distance_to_obstacles - self.crash_distance) / 15, 0, 1)
             else:
                 punishment_obs = 0
@@ -626,9 +629,10 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
             yaw_error = self.dynamic_model.state_raw[1]
             yaw_error_cost = abs(yaw_error / 90)
 
-            reward = reward_distance - 0.1 * punishment_pose - 0.2 * \
-                punishment_obs - 0.1 * punishment_action - 0.5 * yaw_error_cost
-            
+            reward = - 0.1 * punishment_pose - 0.5 * \
+                punishment_obs - 0.1 * punishment_action - 0.1 * yaw_error_cost
+            reward = reward * 10
+
             # print("r_dist: {:.2f} p_pose: {:.2f} p_obs: {:.2f} p_action: {:.2f}, p_yaw_e: {:.2f}".format(reward_distance, punishment_pose, punishment_obs, punishment_action, yaw_error_cost))
         else:
             if self.is_in_desired_pose():
@@ -639,7 +643,7 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
                 reward = reward_outside
 
         return reward
-    
+
     def compute_reward_test(self, done, action):
         reward = 0
         reward_reach = 10
@@ -978,6 +982,9 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
         self.reward_signal.emit(step, reward, self.cumulated_episode_reward)
         self.pose_signal.emit(np.asarray(self.dynamic_model.goal_position), np.asarray(
             self.dynamic_model.start_position), np.asarray(self.dynamic_model.get_position()), np.asarray(self.trajectory_list))
+
+        # lgmd_signal = pyqtSignal(float, float, np.ndarray)  min_dist, lgmd_out, lgmd_split
+        self.lgmd_signal.emit(self.min_distance_to_obstacles, 0,  self.feature_all)
 
     def set_pyqt_signal_multirotor(self, action, reward):
         step = int(self.total_step)

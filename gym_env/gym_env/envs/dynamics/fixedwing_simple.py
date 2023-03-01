@@ -188,11 +188,18 @@ class FixedwingDynamicsSimple():
             0-255
         '''
         distance = self.get_distance_to_goal_2d()
-        relative_yaw = self._get_relative_yaw()
+        relative_yaw = self._get_relative_yaw()  # -pi to pi
 
         # get norm to 0-1
         distance_norm = distance / self.goal_distance
-        relative_yaw_norm = (relative_yaw / math.pi / 2 + 0.5)
+
+        # limit relative yaw to -yaw_error_max to yaw_error_max
+        yaw_error_max = math.radians(60)
+        if relative_yaw > yaw_error_max:
+            relative_yaw = yaw_error_max
+        elif relative_yaw < -yaw_error_max:
+            relative_yaw = -yaw_error_max
+        relative_yaw_norm = (relative_yaw / yaw_error_max / 2 + 0.5)
         roll_norm = (self.roll / self.roll_max / 2 + 0.5)
 
         self.state_raw = np.array([distance, math.degrees(relative_yaw),

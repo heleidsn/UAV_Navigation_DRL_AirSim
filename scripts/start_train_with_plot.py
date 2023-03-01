@@ -4,7 +4,8 @@ import argparse
 from PyQt5 import QtWidgets
 
 # from evaluate_td3 import evaluate
-from utils.thread_train import TrainingThread
+# from utils.thread_train import TrainingThread
+from utils.thread_train_fixedwing import TrainingThread
 from utils.ui_train import TrainingUi
 from configparser import ConfigParser
 
@@ -21,7 +22,8 @@ def get_parser():
 
 def main():
     # set config
-    config_file = 'configs/config_NH_SimpleMR_3D.ini'
+    # config_file = 'configs/config_NH_SimpleMR_3D.ini'
+    config_file = 'configs_new/config_fixedwing.ini'
 
     # 1. Create the qt thread
     app = QtWidgets.QApplication(sys.argv)
