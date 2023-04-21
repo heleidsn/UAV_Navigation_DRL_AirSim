@@ -1,12 +1,29 @@
 # UAV_Navigation_DRL_AirSim
 
-This is a new repo used for training UAV navigation (local path planning) policy using DRL methods.
+A platform for training UAV navigation policies in complex unknown environment.
+
+- An Open AI Gym env is created include kinematic models for both multirotor and fixed-wing UAVs.
+- Some UE4 environments are provided to train and test the navigation policy.
+- based on AirSim and SB3.
+
+Try to train your own autonomous flight policy and even transfer it into real UAVs! Have fun ^_^!
 
 <p align="center">
   <img src="resources/figures/result_3d_NH_simple_dynamics.gif" width = "400" height = "225"/>
   <img src="resources/figures/result_3d_NH_multirotor.gif" width = "400" height = "225"/>
   <!-- <img src="resources/figures/sim_city_fixed_wing.gif" width = "400" height = "225"/>
   <img src="resources/figures/sim_city_flapping_5hz.gif" width = "400" height = "225"/> -->
+</p>
+
+## Real world transfer
+
+Trained policy can be deployed in the real world directly!!!
+
+<p align="center">
+  <img src="resources/real_test/S500.png" width = "400" height = "225"/>
+  <img src="resources/real_test/traj_real.jpg" width = "400" height = "225"/>
+  <img src="resources/real_test/v_xy.jpg" width = "400" height = "225"/> 
+  <img src="resources/real_test/yaw_speed.jpg" width = "400" height = "225"/>
 </p>
 
 ## ChangeLog
