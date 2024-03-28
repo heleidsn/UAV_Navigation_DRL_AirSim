@@ -1,4 +1,4 @@
-from custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet, CNN_GAP_new
+from .custom_policy_sb3 import CNN_FC, CNN_GAP, CNN_GAP_BN, No_CNN, CNN_MobileNet, CNN_GAP_new
 import datetime
 import gym
 import gym_env
@@ -83,7 +83,7 @@ class TrainingThread(QtCore.QThread):
         # ! -----------------------------------init folders-----------------------------------------
         now = datetime.datetime.now()
         now_string = now.strftime('%Y_%m_%d_%H_%M')
-        file_path = 'logs_new/' + self.project_name + '/' + now_string + '_' + self.cfg.get(
+        file_path = 'logs/' + self.project_name + '/' + now_string + '_' + self.cfg.get(
             'options', 'dynamic_name') + '_' + self.cfg.get(
                 'options', 'policy_name') + '_' + self.cfg.get(
                     'options', 'algo')
@@ -242,7 +242,7 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
-    config_file = 'configs_new/' + args.config + '.ini'
+    config_file = 'configs/' + args.config + '.ini'
 
     print(config_file)
 

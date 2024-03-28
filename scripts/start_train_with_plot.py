@@ -4,8 +4,8 @@ import argparse
 from PyQt5 import QtWidgets
 
 # from evaluate_td3 import evaluate
-# from utils.thread_train import TrainingThread
-from utils.thread_train_fixedwing import TrainingThread
+from utils.thread_train import TrainingThread
+# from utils.thread_train_fixedwing import TrainingThread
 from utils.ui_train import TrainingUi
 from configparser import ConfigParser
 
@@ -14,16 +14,17 @@ def get_parser():
     parser = argparse.ArgumentParser(
         description="Training navigation model using TD3")
     parser.add_argument('-config', required=True,
-                        help='config file name, such as config0925.ini', default='config0925.ini')
+                        help='config file name, such as config0925.ini', default='config_default.ini')
     parser.add_argument('-objective', required=True, help='training objective')
 
     return parser
 
 
 def main():
-    # set config
-    # config_file = 'configs/config_NH_SimpleMR_3D.ini'
-    config_file = 'configs_new/config_fixedwing.ini'
+    # select your config file here
+    # config_file = 'configs/config_SimpleAvoid_SimpleMultirotor.ini'
+    # config_file = 'configs/config_fixedwing.ini'
+    config_file = 'configs/config_Maze_SimpleMultirotor_2D.ini'
 
     # 1. Create the qt thread
     app = QtWidgets.QApplication(sys.argv)
@@ -41,14 +42,10 @@ def main():
 
     cfg = ConfigParser()
     cfg.read(config_file)
-    if cfg.has_option('options', 'perception'):
-        if cfg.get('options', 'perception') == 'lgmd':
-            training_thread.env.lgmd_signal.connect(gui.lgmd_plot_cb)
 
     training_thread.start()
 
     sys.exit(app.exec_())
-    print('Exiting program')
 
 
 if __name__ == "__main__":

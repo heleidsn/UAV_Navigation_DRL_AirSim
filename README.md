@@ -28,8 +28,11 @@ Trained policy can be deployed in the real world directly!!!
 
 ## ChangeLog
 
+- 2024-03-28
+  - Deleted the LGMD part
+  - Updated README file
 - 2022-03-11
-  - Add wandb support
+  - Add W&B support
 - 2022-03-10
   - Remove [gym_airsim_multirotor](https://github.com/heleidsn/gym_airsim_multirotor) submodule
   - Add gym_env as envrionment, include MultirotorSimple, Multirotor and FixedwingSimple dynamics
@@ -53,7 +56,7 @@ Trained policy can be deployed in the real world directly!!!
 
 - Download [CUDA11.6](https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64&target_version=10&target_type=exe_local)
 - `pip3 install torch==1.10.1+cu113 torchvision==0.11.2+cu113 torchaudio===0.10.1+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html`
-- You can use `scripts/test/torch_gpu_cpu_test.py` to test your PyTorch and CUDA
+- You can use `tools/test/torch_gpu_cpu_test.py` to test your PyTorch and CUDA.
 
 ## Usage
 
@@ -63,17 +66,37 @@ Trained policy can be deployed in the real world directly!!!
 2. Install gym_env
 
    1. `cd gym_env`
-   2. `pip install -e .`
+   2. `pip install msgpack msgpack-rpc-python`
+   3. `pip install -e .`
+
 3. Install customized stable-baselines3
 
    1. `cd stable-baselines3`
    2. `pip install -e .`
-4. Download a AirSim environment, such as Blocks from [Here](https://github.com/microsoft/AirSim/releases/tag/v1.6.0-windows) and run it
-5. Start training
+   3. If you find the following error, please find the solution [here](https://stackoverflow.com/questions/77124879/pip-extras-require-must-be-a-dictionary-whose-values-are-strings-or-lists-of)
+
+4. Download a AirSim environment, such as [SimpleAvoid](https://drive.google.com/file/d/1QgkZY5-GXRr93QTV-s2d2OCoVSndADAM/view?usp=sharing).
+
+5. If you want to train in other environments please download AirSim released environments from [here](https://github.com/microsoft/AirSim/releases/tag/v1.6.0-windows) and run it.
+   - Note the current version is v1.6.0 for Windows, maybe it will be updated to higher version someday.
+   - If you get a directX runtime problem, please download and install it [here](https://www.microsoft.com/en-us/download/details.aspx?id=35).
+   - You can use `Alt+Enter` to exit the full-screen mode for the first time.
+   - You should copy the `settings.json` at the bottom of README to your `/Document/AirSim/settings.json`.
+
+6. Install other python packages
+
+   ```bash
+   pip install wandb pyqtgraph seaborn keyboard tensorboard tqdm
+   ```
+
+7. Start training
 
    1. `cd UAV_Navigation_DRL_AirSim`
    2. `python scripts/start_train_with_plot.py`
-6. Evaluation
+   3. If you find it's quite slow to get data, please set `ClockSpeed` in `your path to Documents\Airsim\settings.json` over than 1 (such as 10) to speed up the training process.
+   4. You log and trained model will be saved to the `log` folder.
+
+8. Evaluation
 
    1. `cd UAV_Navigation_DRL_AirSim`
    2. `python scripts/start_evaluate_with_plot.py`
@@ -153,7 +176,7 @@ Note:
 
 To speed up image collection, you can set `ViewMode `to `NoDisplay`.
 
-For multirotor with [simple_flight](https://microsoft.github.io/AirSim/simple_flight/) controller, please set `SimMode `to `Multirotor`. You can also set `ClockSpeed `over than 1 to speed up simulation (Only useful in `Multirotor `mode).
+For multirotor with [simple_flight](https://microsoft.github.io/AirSim/simple_flight/) controller, please set `SimMode `to `Multirotor`. Or you can use `ComputerVision` mode to train without dynamics. You can also set `ClockSpeed `over than 1 to speed up simulation (Only useful in `Multirotor `mode).
 
 Also, it's better to put your environment files in your SSD rather than HDD.
 
@@ -161,8 +184,8 @@ Also, it's better to put your environment files in your SSD rather than HDD.
 {
   "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
   "SettingsVersion": 1.2,
-  "SimMode": "ComputerVision",
-  "ViewMode": "NoDisplay",
+  "SimMode": "Multirotor",
+  "ViewMode": "",
   "ClockSpeed": 1,
   "SubWindows": [
     {"WindowID": 0, "CameraID": 0, "ImageType": 0, "Visible": true},

@@ -17,7 +17,8 @@ from wandb.integration.sb3 import WandbCallback
 
 # wandb.init(project="MR_NH", entity="heleidsn")
 
-HOME_PATH = r'C:\Users\helei\Documents\GitHub\UAV_Navigation_DRL_AirSim'
+HOME_PATH = os.pwd()
+print(HOME_PATH)
 
 #! ---------------step 0: custom your training process-------------------------
 method = 'pure_rl'      # 1-pure_rl 2-generate_expert_data 3-bc_rl 4-offline_rl

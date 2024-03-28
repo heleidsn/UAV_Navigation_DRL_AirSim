@@ -12,7 +12,7 @@ import cv2
 from .dynamics.multirotor_simple import MultirotorDynamicsSimple
 from .dynamics.multirotor_airsim import MultirotorDynamicsAirsim
 from .dynamics.fixedwing_simple import FixedwingDynamicsSimple
-from .lgmd.LGMD import LGMD
+# from .lgmd.LGMD import LGMD
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal
@@ -925,17 +925,17 @@ class AirsimGymEnv(gym.Env, QtCore.QThread):
 # ! -----------used for plot or show states------------------------------------------------------------------
 
     def print_train_info_airsim(self, action, obs, reward, info):
-        if self.perception_type == 'split' or self.perception_type == 'lgmd':
-            feature_all = self.feature_all
-        elif self.perception_type == 'vector':
-            feature_all = self.feature_all
-        else:
-            if self.cfg.get('options', 'algo') == 'TD3' or self.cfg.get('options', 'algo') == 'SAC':
-                feature_all = self.model.actor.features_extractor.feature_all
-            elif self.cfg.get('options', 'algo') == 'PPO':
-                feature_all = self.model.policy.features_extractor.feature_all
+        # if self.perception_type == 'split' or self.perception_type == 'lgmd':
+        #     feature_all = self.feature_all
+        # elif self.perception_type == 'vector':
+        #     feature_all = self.feature_all
+        # else:
+        #     if self.cfg.get('options', 'algo') == 'TD3' or self.cfg.get('options', 'algo') == 'SAC':
+        #         feature_all = self.model.actor.features_extractor.feature_all
+        #     elif self.cfg.get('options', 'algo') == 'PPO':
+        #         feature_all = self.model.policy.features_extractor.feature_all
 
-        self.client.simPrintLogMessage('feature_all: ', str(feature_all))
+        # self.client.simPrintLogMessage('feature_all: ', str(feature_all))
 
         msg_train_info = "EP: {} Step: {} Total_step: {}".format(
             self.episode_num, self.step_num, self.total_step)
