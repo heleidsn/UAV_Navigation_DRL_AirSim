@@ -45,6 +45,7 @@ Trained policy can be deployed in the real world directly!!!
 - [AirSim](https://microsoft.github.io/AirSim/) v1.6.0
 - pytorch 1.10.1 with gpu
 - gym-0.21.0
+  - If you have 'error in gym setup command: extras_require must be a dictionary' problem while install gym 0.21.0, please refer to [this issue](https://github.com/heleidsn/UAV_Navigation_DRL_AirSim/issues/62#issuecomment-2791834386) for solution. Thanks [Q1jiaotashidi](https://github.com/Q1jiaotashidi).
 - Pyqt5 5.15.6
 - keyboard 0.13.5
 
