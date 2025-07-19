@@ -38,6 +38,22 @@ Trained policy can be deployed in the real world directly!!!
   - Add gym_env as envrionment, include MultirotorSimple, Multirotor and FixedwingSimple dynamics
   - Add train with plot
   - Add SimpleAvoid UE4 environment
+ 
+## Paper
+
+If you find this project useful in your research, please consider citing the following paper:
+
+```
+@article{he2021explainable,
+  title={Explainable Deep Reinforcement Learning for UAV autonomous path planning},
+  author={He, Lei and Aouf, Nabil and Song, Bifeng},
+  journal={Aerospace science and technology},
+  volume={118},
+  pages={107052},
+  year={2021},
+  publisher={Elsevier}
+}
+```
 
 ## Requirements
 
